@@ -1,11 +1,12 @@
 """データベース接続と初期化。"""
 
 import logging
+import os
 import re
 import sqlite3
 from pathlib import Path
 
-from src.utils.exceptions import DatabaseError
+from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,11 @@ def create_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
         db_path = Path(db_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        conn = sqlite3.connect(str(db_path))
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+
+        # 個人情報を含むDBファイルのパーミッションを所有者のみに制限
+        if db_path.exists() and os.name != "nt":
+            db_path.chmod(0o600)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")

@@ -5,8 +5,8 @@ import sqlite3
 import uuid
 from datetime import date, datetime
 
-from src.db_service.models import ClientRecord
-from src.utils.exceptions import DatabaseError
+from db_service.models import ClientRecord
+from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 

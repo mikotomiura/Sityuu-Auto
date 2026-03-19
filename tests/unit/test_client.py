@@ -2,10 +2,12 @@
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from ai_service.client import (
     AnthropicClient,
+    GeminiClient,
     LLMClient,
     OpenAIClient,
     create_client,
@@ -180,4 +182,59 @@ class TestAnthropicClient:
 
         client = AnthropicClient(api_key="sk-ant-invalid", model="claude-3-5-sonnet-20241022")
         with pytest.raises(AIServiceConfigError):
+            client.generate(system_prompt="system", user_prompt="user")
+
+
+class TestGeminiClient:
+    """GeminiClient のテスト。"""
+
+    def test_empty_api_key_raises_config_error(self) -> None:
+        """空のAPIキーで AIServiceConfigError が発生すること。"""
+        with pytest.raises(AIServiceConfigError):
+            GeminiClient(api_key="", models=["gemini-2.5-flash"])
+
+    def test_empty_models_raises_config_error(self) -> None:
+        """空のモデルリストで AIServiceConfigError が発生すること。"""
+        with pytest.raises(AIServiceConfigError):
+            GeminiClient(api_key="test-key", models=[])
+
+    @patch("ai_service.client.genai")
+    def test_transport_error_triggers_fallback(self, mock_genai: MagicMock) -> None:
+        """SSL/ネットワークエラーで次のモデルへフォールバックすること。"""
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        # 1回目: SSL エラー、2回目: 成功
+        mock_response = MagicMock()
+        mock_response.text = "鑑定結果テキスト"
+        mock_client.models.generate_content.side_effect = [
+            httpx.ConnectError("[SSL: UNEXPECTED_EOF_WHILE_READING]"),
+            mock_response,
+        ]
+
+        client = GeminiClient(
+            api_key="test-key",
+            models=["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+        )
+        result = client.generate(system_prompt="system", user_prompt="user")
+
+        assert result == "鑑定結果テキスト"
+        assert mock_client.models.generate_content.call_count == 2
+
+    @patch("ai_service.client.genai")
+    def test_all_models_transport_error_raises_ai_service_error(
+        self, mock_genai: MagicMock
+    ) -> None:
+        """全モデルでネットワークエラーの場合 AIServiceError が発生すること。"""
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+        mock_client.models.generate_content.side_effect = httpx.ConnectError(
+            "[SSL: UNEXPECTED_EOF_WHILE_READING]"
+        )
+
+        client = GeminiClient(
+            api_key="test-key",
+            models=["model-a", "model-b"],
+        )
+        with pytest.raises(AIServiceError, match="すべてのGeminiモデルが利用できませんでした"):
             client.generate(system_prompt="system", user_prompt="user")

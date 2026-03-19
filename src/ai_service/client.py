@@ -4,6 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 
 import anthropic
+import httpx
 import openai
 from google import genai
 from google.genai import types as genai_types
@@ -213,6 +214,15 @@ class GeminiClient(LLMClient):
                 raise AIServiceError(
                     "Gemini APIサーバーでエラーが発生しました。しばらくしてから再試行してください。"
                 ) from e
+
+            except httpx.TransportError as e:
+                last_error = e
+                logger.warning(
+                    "Gemini モデル %s ネットワークエラー (%s), 次のモデルへフォールバック",
+                    model,
+                    type(e).__name__,
+                )
+                continue
 
         # すべてのモデルが失敗した場合
         tried = ", ".join(self._models)

@@ -67,8 +67,8 @@ class TestBuildReadingPrompt:
             concern=SAMPLE_CONCERN,
         )
 
-        assert "命式から読み取れる相談者の本質" in user
-        assert "具体的なアドバイス案" in user
+        assert "命式から読み取れる強みと課題" in user
+        assert "具体的なアドバイス" in user
 
 
 class TestBuildListeningHintPrompt:

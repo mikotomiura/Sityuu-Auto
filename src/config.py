@@ -1,11 +1,16 @@
-"""アプリケーション設定"""
+"""アプリケーション定数・設定値の定義。"""
 
 # --- session_state キー ---
 SESSION_KEY_CLIENT_CURRENT = "current_client"
+SESSION_KEY_CLIENT_NAME = "client_name"
+SESSION_KEY_CLIENT_BIRTH_DATE = "client_birth_date"
+SESSION_KEY_CLIENT_BIRTH_TIME = "client_birth_time"
+SESSION_KEY_CLIENT_GENDER = "client_gender"
 SESSION_KEY_CHART_RESULT = "natal_chart"
 SESSION_KEY_AI_RESPONSE = "ai_response"
 SESSION_KEY_FORTUNE_RESULT = "fortune_result"
 SESSION_KEY_LISTENING_HINTS = "listening_hints"
+SESSION_KEY_CONCERN = "concern"
 SESSION_KEY_API_PROVIDER = "api_provider"
 SESSION_KEY_API_MODEL = "api_model"
 
