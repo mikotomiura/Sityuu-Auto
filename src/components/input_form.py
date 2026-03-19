@@ -33,38 +33,52 @@ def render_client_input_form() -> ClientInputData | None:
         未送信時: None。
     """
     with st.form("client_input_form"):
-        name = st.text_input(
-            "お名前（仮名可）",
-            max_chars=50,
-            placeholder="例: 山田太郎",
-        )
+        st.subheader("相談者情報")
 
-        birth_date = st.date_input(
-            "生年月日",
-            value=date(1990, 1, 1),
-            min_value=date(1900, 1, 1),
-            max_value=date.today(),
-        )
+        # --- 基本情報（2カラム） ---
+        col_name, col_gender = st.columns([3, 1])
+        with col_name:
+            name = st.text_input(
+                "お名前（仮名可）",
+                max_chars=50,
+                placeholder="例: 山田太郎",
+            )
+        with col_gender:
+            gender = st.selectbox(
+                "性別",
+                options=["回答しない", "男性", "女性"],
+            )
 
-        birth_time_unknown = st.checkbox("出生時間不明")
-        birth_time_input = st.time_input(
-            "出生時間",
-            disabled=birth_time_unknown,
-        )
+        # --- 生年月日・出生時間（2カラム） ---
+        col_date, col_time = st.columns(2)
+        with col_date:
+            birth_date = st.date_input(
+                "生年月日",
+                value=date(1990, 1, 1),
+                min_value=date(1900, 1, 1),
+                max_value=date.today(),
+            )
+        with col_time:
+            birth_time_unknown = st.checkbox("出生時間不明")
+            birth_time_input = st.time_input(
+                "出生時間",
+                disabled=birth_time_unknown,
+            )
 
-        gender = st.selectbox(
-            "性別",
-            options=["回答しない", "男性", "女性"],
-        )
-
+        # --- 悩み ---
+        st.markdown("---")
         concern = st.text_area(
             "現在の主な悩み",
             max_chars=2000,
-            height=150,
+            height=120,
             placeholder="相談したい内容を入力してください（10文字以上）",
         )
 
-        submitted = st.form_submit_button("鑑定開始", type="primary")
+        submitted = st.form_submit_button(
+            "命式を算出して鑑定を開始",
+            type="primary",
+            use_container_width=True,
+        )
 
     if not submitted:
         return None

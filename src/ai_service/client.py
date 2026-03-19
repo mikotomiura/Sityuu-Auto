@@ -179,7 +179,7 @@ class GeminiClient(LLMClient):
                     config=genai_types.GenerateContentConfig(
                         system_instruction=system_prompt,
                         temperature=0.7,
-                        max_output_tokens=2000,
+                        max_output_tokens=16384,
                     ),
                 )
                 content = response.text

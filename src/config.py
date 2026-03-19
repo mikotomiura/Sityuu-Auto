@@ -5,6 +5,7 @@ SESSION_KEY_CLIENT_CURRENT = "current_client"
 SESSION_KEY_CHART_RESULT = "natal_chart"
 SESSION_KEY_AI_RESPONSE = "ai_response"
 SESSION_KEY_FORTUNE_RESULT = "fortune_result"
+SESSION_KEY_LISTENING_HINTS = "listening_hints"
 SESSION_KEY_API_PROVIDER = "api_provider"
 SESSION_KEY_API_MODEL = "api_model"
 

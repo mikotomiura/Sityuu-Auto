@@ -12,9 +12,18 @@ st.set_page_config(
     page_title=APP_TITLE,
     page_icon=APP_ICON,
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 st.sidebar.title(f"{APP_ICON} {APP_TITLE}")
+st.sidebar.caption("四柱推命・算命学 AI鑑定支援ツール")
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    "**使い方**\n"
+    "1. 相談者の情報を入力\n"
+    "2. 命式を自動算出\n"
+    "3. AI鑑定で分析レポート生成"
+)
 st.sidebar.markdown("---")
 
 reading_page = st.Page("pages/01_reading.py", title="鑑定", icon="\u2728")
