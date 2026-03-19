@@ -31,5 +31,6 @@ Thumbs.db
 # 作業記録（セッション単位のノート）
 .steering/
 
-# Claude Code ユーザー固有データ
-.claude/projects/
+# Claude Code 設定
+.claude/
+CLAUDE.md
