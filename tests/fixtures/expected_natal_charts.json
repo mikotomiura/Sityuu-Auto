@@ -1,0 +1,46 @@
+{
+  "test_cases": [
+    {
+      "id": "1985-12-15",
+      "description": "1985年12月15日（出生時間なし）",
+      "birth_date": "1985-12-15",
+      "birth_time": null,
+      "expected": {
+        "day_stem": "戊",
+        "year_pillar_ganshi": "乙丑",
+        "month_pillar_ganshi": "戊子",
+        "day_pillar_ganshi": "戊子",
+        "hour_pillar_ganshi": null,
+        "xun_kong": "午未"
+      }
+    },
+    {
+      "id": "1990-05-15",
+      "description": "1990年5月15日 10:30",
+      "birth_date": "1990-05-15",
+      "birth_time": "10:30",
+      "expected": {
+        "day_stem": "庚",
+        "year_pillar_ganshi": "庚午",
+        "month_pillar_ganshi": "辛巳",
+        "day_pillar_ganshi": "庚辰",
+        "hour_pillar_ganshi": "辛巳",
+        "xun_kong": "申酉"
+      }
+    },
+    {
+      "id": "2000-01-01",
+      "description": "2000年1月1日 0:00",
+      "birth_date": "2000-01-01",
+      "birth_time": "00:00",
+      "expected": {
+        "day_stem": "戊",
+        "year_pillar_ganshi": "己卯",
+        "month_pillar_ganshi": "丙子",
+        "day_pillar_ganshi": "戊午",
+        "hour_pillar_ganshi": "壬子",
+        "xun_kong": "子丑"
+      }
+    }
+  ]
+}

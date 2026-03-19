@@ -1,0 +1,197 @@
+"""相談者リポジトリ。"""
+
+import logging
+import sqlite3
+import uuid
+from datetime import date, datetime
+
+from src.db_service.models import ClientRecord
+from src.utils.exceptions import DatabaseError
+
+logger = logging.getLogger(__name__)
+
+
+def _row_to_client_record(row: sqlite3.Row) -> ClientRecord:
+    """sqlite3.Row を ClientRecord に変換する。"""
+    return ClientRecord(
+        id=row["id"],
+        name=row["name"],
+        birth_date=row["birth_date"],
+        birth_time=row["birth_time"],
+        gender=row["gender"],
+        notes=row["notes"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+class ClientRepository:
+    """相談者データのCRUD操作を提供する。"""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def save(
+        self,
+        name: str,
+        birth_date: date,
+        birth_time: str | None = None,
+        gender: str | None = None,
+        notes: str | None = None,
+    ) -> str:
+        """相談者を新規保存する。
+
+        Args:
+            name: 名前（仮名可）。
+            birth_date: 生年月日。
+            birth_time: 出生時間（HH:MM形式）。不明の場合は None。
+            gender: 性別。
+            notes: メモ。
+
+        Returns:
+            生成された UUID（文字列）。
+
+        Raises:
+            DatabaseError: 保存に失敗した場合。
+        """
+        client_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+
+        try:
+            self._conn.execute(
+                """
+                INSERT INTO clients (id, name, birth_date, birth_time, gender, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (client_id, name, birth_date.isoformat(), birth_time, gender, notes, now, now),
+            )
+            self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error("相談者の保存に失敗: %s", e)
+            raise DatabaseError("相談者の保存に失敗しました") from e
+
+        logger.info("相談者を保存: client_id=%s", client_id)
+        return client_id
+
+    def find_by_id(self, client_id: str) -> ClientRecord | None:
+        """IDで相談者を検索する。
+
+        Args:
+            client_id: 相談者の UUID。
+
+        Returns:
+            見つかった場合は ClientRecord、見つからない場合は None。
+
+        Raises:
+            DatabaseError: 検索に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT * FROM clients WHERE id = ?",
+                (client_id,),
+            )
+            row = cursor.fetchone()
+        except sqlite3.Error as e:
+            logger.error("相談者の検索に失敗: %s", e)
+            raise DatabaseError("相談者の検索に失敗しました") from e
+
+        if row is None:
+            return None
+
+        return _row_to_client_record(row)
+
+    def find_all(self, limit: int = 50, offset: int = 0) -> list[ClientRecord]:
+        """全相談者を取得する（ページネーション付き）。
+
+        Args:
+            limit: 取得件数上限。
+            offset: オフセット。
+
+        Returns:
+            ClientRecord のリスト。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT * FROM clients ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            )
+            return [_row_to_client_record(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error("相談者一覧の取得に失敗: %s", e)
+            raise DatabaseError("相談者一覧の取得に失敗しました") from e
+
+    def search_by_name(self, query: str) -> list[ClientRecord]:
+        """名前で相談者を検索する。
+
+        Args:
+            query: 検索文字列（部分一致）。
+
+        Returns:
+            マッチした ClientRecord のリスト。
+
+        Raises:
+            DatabaseError: 検索に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT * FROM clients WHERE name LIKE ? ORDER BY name",
+                (f"%{query}%",),
+            )
+            return [_row_to_client_record(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error("相談者の名前検索に失敗: %s", e)
+            raise DatabaseError("相談者の名前検索に失敗しました") from e
+
+    def update(
+        self,
+        client_id: str,
+        name: str | None = None,
+        notes: str | None = None,
+    ) -> bool:
+        """相談者情報を更新する。
+
+        Args:
+            client_id: 相談者の UUID。
+            name: 更新する名前（None の場合は変更しない）。
+            notes: 更新するメモ（None の場合は変更しない）。
+
+        Returns:
+            更新成功なら True。
+
+        Raises:
+            DatabaseError: 更新に失敗した場合。
+        """
+        # updates にはハードコードされたカラム名リテラルのみが追加される。
+        # ユーザー入力値はすべて params 経由でバインディングされるため安全。
+        updates: list[str] = []
+        params: list[str] = []
+
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        if notes is not None:
+            updates.append("notes = ?")
+            params.append(notes)
+
+        if not updates:
+            return False
+
+        updates.append("updated_at = ?")
+        params.append(datetime.now().isoformat())
+        params.append(client_id)
+
+        try:
+            sql = f"UPDATE clients SET {', '.join(updates)} WHERE id = ?"
+            cursor = self._conn.execute(sql, params)
+            self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error("相談者の更新に失敗: %s", e)
+            raise DatabaseError("相談者の更新に失敗しました") from e
+
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.info("相談者を更新: client_id=%s", client_id)
+        return updated

@@ -1,0 +1,35 @@
+# 環境変数（秘匿情報）
+.env
+
+# ローカルデータ
+data/fortune.db
+data/*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# テスト・リント・型チェックのキャッシュ
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 作業記録（セッション単位のノート）
+.steering/
+
+# Claude Code ユーザー固有データ
+.claude/projects/
