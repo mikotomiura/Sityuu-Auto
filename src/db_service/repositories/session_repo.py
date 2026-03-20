@@ -3,6 +3,7 @@
 import logging
 import sqlite3
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 
 from db_service.models import SessionRecord
@@ -26,6 +27,29 @@ def _row_to_session_record(row: sqlite3.Row) -> SessionRecord:
         api_model=row["api_model"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+    )
+
+
+@dataclass(frozen=True)
+class SessionWithClientName:
+    """セッションレコードに相談者名を付加したデータ。
+
+    履歴一覧表示用に、sessions と clients を JOIN した結果を表現する。
+
+    Attributes:
+        session: セッションレコード。
+        client_name: 相談者の名前。
+    """
+
+    session: SessionRecord
+    client_name: str
+
+
+def _row_to_session_with_client_name(row: sqlite3.Row) -> SessionWithClientName:
+    """JOIN結果のRowをSessionWithClientNameに変換する。"""
+    return SessionWithClientName(
+        session=_row_to_session_record(row),
+        client_name=row["client_name"],
     )
 
 
@@ -181,3 +205,76 @@ class SessionRepository:
         except sqlite3.Error as e:
             logger.error("セッション一覧の取得に失敗: %s", e)
             raise DatabaseError("セッション一覧の取得に失敗しました") from e
+
+    def find_all_with_client_name(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[SessionWithClientName]:
+        """全セッションを相談者名付きで取得する。
+
+        sessions と clients を JOIN し、相談者名を含めた一覧を返す。
+
+        Args:
+            limit: 取得件数上限。
+            offset: オフセット。
+
+        Returns:
+            SessionWithClientName のリスト（作成日時の降順）。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                """
+                SELECT s.*, c.name AS client_name
+                FROM sessions s
+                JOIN clients c ON s.client_id = c.id
+                ORDER BY s.created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            )
+            return [_row_to_session_with_client_name(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error("セッション一覧（相談者名付き）の取得に失敗: %s", e)
+            raise DatabaseError("セッション一覧の取得に失敗しました") from e
+
+    def search_by_client_name(
+        self,
+        query: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[SessionWithClientName]:
+        """相談者名でセッションを検索する。
+
+        sessions と clients を JOIN し、名前の部分一致で検索する。
+
+        Args:
+            query: 検索文字列（相談者名の部分一致）。
+            limit: 取得件数上限。
+            offset: オフセット。
+
+        Returns:
+            SessionWithClientName のリスト（作成日時の降順）。
+
+        Raises:
+            DatabaseError: 検索に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                """
+                SELECT s.*, c.name AS client_name
+                FROM sessions s
+                JOIN clients c ON s.client_id = c.id
+                WHERE c.name LIKE ?
+                ORDER BY s.created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (f"%{query}%", limit, offset),
+            )
+            return [_row_to_session_with_client_name(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error("セッション検索に失敗: %s", e)
+            raise DatabaseError("セッションの検索に失敗しました") from e

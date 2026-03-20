@@ -24,6 +24,7 @@ st.sidebar.markdown(
 st.sidebar.markdown("---")
 
 reading_page = st.Page("pages/01_reading.py", title="鑑定", icon="\u2728")
+history_page = st.Page("pages/02_history.py", title="鑑定履歴", icon="\U0001f4cb")
 
-pg = st.navigation([reading_page])
+pg = st.navigation([reading_page, history_page])
 pg.run()

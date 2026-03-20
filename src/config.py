@@ -16,6 +16,10 @@ SESSION_KEY_CONCERN = "concern"
 SESSION_KEY_API_PROVIDER = "api_provider"
 SESSION_KEY_API_MODEL = "api_model"
 
+# --- 履歴ページ用 ---
+SESSION_KEY_HISTORY_SELECTED_SESSION = "history_selected_session"
+SESSION_KEY_HISTORY_SEARCH_QUERY = "history_search_query"
+
 # --- アプリケーション設定 ---
 APP_TITLE = "Sityuu-Auto-占い・メンタリング支援システム-"
 APP_ICON = "\U0001f52e"
