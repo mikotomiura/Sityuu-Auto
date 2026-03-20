@@ -24,6 +24,7 @@ from config import (
     SESSION_KEY_CLIENT_BIRTH_TIME,
     SESSION_KEY_CLIENT_GENDER,
     SESSION_KEY_CLIENT_NAME,
+    SESSION_KEY_CLIENT_NAME_KANA,
     SESSION_KEY_CONCERN,
     SESSION_KEY_FORTUNE_RESULT,
     SESSION_KEY_LISTENING_HINTS,
@@ -55,6 +56,7 @@ def _initialize_state() -> None:
         SESSION_KEY_LISTENING_HINTS,
         SESSION_KEY_CONCERN,
         SESSION_KEY_CLIENT_NAME,
+        SESSION_KEY_CLIENT_NAME_KANA,
         SESSION_KEY_CLIENT_BIRTH_DATE,
         SESSION_KEY_CLIENT_BIRTH_TIME,
         SESSION_KEY_CLIENT_GENDER,
@@ -113,6 +115,7 @@ def _save_session_to_db(
         listening_hints: 傾聴ヒントテキスト。
     """
     client_name: str | None = st.session_state.get(SESSION_KEY_CLIENT_NAME)
+    client_name_kana: str | None = st.session_state.get(SESSION_KEY_CLIENT_NAME_KANA)
     birth_date_val = st.session_state.get(SESSION_KEY_CLIENT_BIRTH_DATE)
     birth_time_val: str | None = st.session_state.get(SESSION_KEY_CLIENT_BIRTH_TIME)
     gender_val: str | None = st.session_state.get(SESSION_KEY_CLIENT_GENDER)
@@ -133,6 +136,7 @@ def _save_session_to_db(
             birth_date=birth_date_val,
             birth_time=birth_time_val,
             gender=gender_val,
+            name_kana=client_name_kana,
         )
 
         # セッションを保存
@@ -175,6 +179,7 @@ def main() -> None:
                 st.session_state[SESSION_KEY_FORTUNE_RESULT] = result
                 st.session_state[SESSION_KEY_CONCERN] = client_data.concern
                 st.session_state[SESSION_KEY_CLIENT_NAME] = client_data.name
+                st.session_state[SESSION_KEY_CLIENT_NAME_KANA] = client_data.name_kana
                 st.session_state[SESSION_KEY_CLIENT_BIRTH_DATE] = client_data.birth_date
                 st.session_state[SESSION_KEY_CLIENT_BIRTH_TIME] = (
                     client_data.birth_time.strftime("%H:%M") if client_data.birth_time else None
@@ -259,6 +264,8 @@ def main() -> None:
 
         prompt_text = format_for_ai_prompt(result)
         llm = _create_llm_client(provider, api_key, model)
+        client_name = st.session_state.get(SESSION_KEY_CLIENT_NAME, "")
+        client_name_kana = st.session_state.get(SESSION_KEY_CLIENT_NAME_KANA, "")
 
         # --- 鑑定レポート生成 ---
         try:
@@ -266,6 +273,8 @@ def main() -> None:
                 system_prompt, user_prompt = build_reading_prompt(
                     natal_chart_text=prompt_text,
                     concern=concern,
+                    name=client_name or "",
+                    name_kana=client_name_kana or "",
                     custom_system_prompt=custom_system_prompt,
                 )
                 ai_text = llm.generate(system_prompt, user_prompt)

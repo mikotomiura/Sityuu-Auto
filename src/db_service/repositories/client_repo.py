@@ -16,6 +16,7 @@ def _row_to_client_record(row: sqlite3.Row) -> ClientRecord:
     return ClientRecord(
         id=row["id"],
         name=row["name"],
+        name_kana=row["name_kana"],
         birth_date=row["birth_date"],
         birth_time=row["birth_time"],
         gender=row["gender"],
@@ -37,6 +38,7 @@ class ClientRepository:
         birth_date: date,
         birth_time: str | None = None,
         gender: str | None = None,
+        name_kana: str | None = None,
         notes: str | None = None,
     ) -> str:
         """相談者を新規保存する。
@@ -46,6 +48,7 @@ class ClientRepository:
             birth_date: 生年月日。
             birth_time: 出生時間（HH:MM形式）。不明の場合は None。
             gender: 性別。
+            name_kana: フリガナ（カタカナ）。
             notes: メモ。
 
         Returns:
@@ -60,10 +63,10 @@ class ClientRepository:
         try:
             self._conn.execute(
                 """
-                INSERT INTO clients (id, name, birth_date, birth_time, gender, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO clients (id, name, name_kana, birth_date, birth_time, gender, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (client_id, name, birth_date.isoformat(), birth_time, gender, notes, now, now),
+                (client_id, name, name_kana, birth_date.isoformat(), birth_time, gender, notes, now, now),
             )
             self._conn.commit()
         except sqlite3.Error as e:
@@ -137,8 +140,8 @@ class ClientRepository:
         """
         try:
             cursor = self._conn.execute(
-                "SELECT * FROM clients WHERE name LIKE ? ORDER BY name",
-                (f"%{query}%",),
+                "SELECT * FROM clients WHERE name LIKE ? OR name_kana LIKE ? ORDER BY name",
+                (f"%{query}%", f"%{query}%"),
             )
             return [_row_to_client_record(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:

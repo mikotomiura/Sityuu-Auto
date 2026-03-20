@@ -13,6 +13,7 @@ class ClientRecord:
     Attributes:
         id: UUID 文字列。
         name: 相談者の名前（仮名可）。
+        name_kana: フリガナ（カタカナ）。未設定の場合は None。
         birth_date: 生年月日（ISO 8601 形式）。
         birth_time: 出生時間（HH:MM形式）。不明の場合は None。
         gender: 性別。
@@ -23,6 +24,7 @@ class ClientRecord:
 
     id: str
     name: str
+    name_kana: str | None
     birth_date: str
     birth_time: str | None
     gender: str | None

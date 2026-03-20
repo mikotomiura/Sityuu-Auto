@@ -9,6 +9,7 @@ import streamlit as st
 from components.natal_chart_display import render_natal_chart
 from components.pdf_export import build_reading_report_pdf
 from utils.exceptions import PDFExportError
+from utils.text_utils import strip_mentor_section
 from fortune_engine.formatter import (
     format_for_ai_prompt,
     format_for_display,
@@ -74,14 +75,24 @@ def render_reading_result(
 
     # ===== エクスポートボタン =====
     if ai_text:
+        today = datetime.now().strftime("%Y%m%d")
+        name_part = client_name or "unknown"
+
+        export_mode = st.radio(
+            "エクスポート形式",
+            options=["相談者向け（メンター情報を除外）", "メンター用（全情報）"],
+            horizontal=True,
+            help="相談者向けでは傾聴ヒントやメンター向けガイドを除外します。",
+        )
+        include_mentor = export_mode == "メンター用（全情報）"
+
         md_content = build_reading_report_markdown(
             result=result,
             ai_text=ai_text,
-            listening_hints=listening_hints,
+            listening_hints=listening_hints if include_mentor else None,
             client_name=client_name,
+            include_mentor_content=include_mentor,
         )
-        today = datetime.now().strftime("%Y%m%d")
-        name_part = client_name or "unknown"
 
         col_md, col_pdf = st.columns(2)
         with col_md:
@@ -97,8 +108,9 @@ def render_reading_result(
                 pdf_data = build_reading_report_pdf(
                     result=result,
                     ai_text=ai_text,
-                    listening_hints=listening_hints,
+                    listening_hints=listening_hints if include_mentor else None,
                     client_name=client_name,
+                    include_mentor_content=include_mentor,
                 )
                 st.download_button(
                     label="PDFで保存",
@@ -155,6 +167,8 @@ def build_reading_report_markdown(
     ai_text: str,
     listening_hints: str | None = None,
     client_name: str | None = None,
+    *,
+    include_mentor_content: bool = True,
 ) -> str:
     """鑑定結果を統合したMarkdownテキストを生成する。
 
@@ -166,12 +180,16 @@ def build_reading_report_markdown(
         ai_text: AI鑑定テキスト。
         listening_hints: 傾聴ヒントテキスト。
         client_name: 相談者名（ヘッダーに表示）。
+        include_mentor_content: メンター向けコンテンツを含めるか。
+            Falseの場合、AI鑑定テキスト内のセクション5と傾聴ヒントを除外する。
 
     Returns:
         Markdown形式の鑑定レポート文字列。
     """
     today = datetime.now().strftime("%Y-%m-%d")
     name_display = client_name or "（名前未設定）"
+
+    export_ai_text = ai_text if include_mentor_content else strip_mentor_section(ai_text)
 
     sections = [
         f"# 鑑定レポート: {name_display}",
@@ -189,10 +207,10 @@ def build_reading_report_markdown(
         "",
         "## AI鑑定レポート",
         "",
-        ai_text,
+        export_ai_text,
     ]
 
-    if listening_hints:
+    if listening_hints and include_mentor_content:
         sections.extend(
             [
                 "",

@@ -176,6 +176,8 @@ def build_reading_report_pdf(
     ai_text: str,
     listening_hints: str | None = None,
     client_name: str | None = None,
+    *,
+    include_mentor_content: bool = True,
 ) -> bytes:
     """鑑定結果をPDFバイナリとして生成する。
 
@@ -184,6 +186,8 @@ def build_reading_report_pdf(
         ai_text: AI鑑定テキスト。
         listening_hints: 傾聴ヒントテキスト。
         client_name: 相談者名（タイトル・ファイル名に使用）。
+        include_mentor_content: メンター向けコンテンツを含めるか。
+            Falseの場合、セクション5と傾聴ヒントを除外する。
 
     Returns:
         PDF ファイルのバイナリデータ。
@@ -228,10 +232,15 @@ def build_reading_report_pdf(
 
         # --- AI鑑定レポート ---
         elements.append(Paragraph("AI鑑定レポート", styles["heading"]))
-        elements.extend(_markdown_to_paragraphs(ai_text, styles))
+        export_ai_text = ai_text
+        if not include_mentor_content:
+            from utils.text_utils import strip_mentor_section
+
+            export_ai_text = strip_mentor_section(ai_text)
+        elements.extend(_markdown_to_paragraphs(export_ai_text, styles))
 
         # --- 傾聴ヒント ---
-        if listening_hints:
+        if listening_hints and include_mentor_content:
             elements.append(Spacer(1, 4 * mm))
             elements.append(Paragraph("傾聴のヒント（メンター向け）", styles["heading"]))
             elements.extend(_markdown_to_paragraphs(listening_hints, styles))

@@ -12,6 +12,7 @@ class ClientInputData:
 
     Attributes:
         name: 相談者の名前（仮名可）。
+        name_kana: フリガナ（カタカナ）。未入力の場合はNone。
         birth_date: 生年月日。
         birth_time: 出生時間。不明の場合はNone。
         gender: 性別。
@@ -19,6 +20,7 @@ class ClientInputData:
     """
 
     name: str
+    name_kana: str | None
     birth_date: date
     birth_time: time | None
     gender: str | None
@@ -35,13 +37,20 @@ def render_client_input_form() -> ClientInputData | None:
     with st.form("client_input_form"):
         st.subheader("相談者情報")
 
-        # --- 基本情報（2カラム） ---
-        col_name, col_gender = st.columns([3, 1])
+        # --- 基本情報 ---
+        col_name, col_kana, col_gender = st.columns([2, 2, 1])
         with col_name:
             name = st.text_input(
                 "お名前（仮名可）",
                 max_chars=50,
                 placeholder="例: 山田太郎",
+            )
+        with col_kana:
+            name_kana = st.text_input(
+                "フリガナ",
+                max_chars=50,
+                placeholder="例: ヤマダ タロウ",
+                help="名前の音韻（響き）を鑑定に活用します。",
             )
         with col_gender:
             gender = st.selectbox(
@@ -94,6 +103,7 @@ def render_client_input_form() -> ClientInputData | None:
 
     return ClientInputData(
         name=name.strip(),
+        name_kana=name_kana.strip() if name_kana.strip() else None,
         birth_date=birth_date,
         birth_time=None if birth_time_unknown else birth_time_input,
         gender=gender if gender != "回答しない" else None,

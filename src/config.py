@@ -5,6 +5,7 @@ from pathlib import Path
 # --- session_state キー ---
 SESSION_KEY_CLIENT_CURRENT = "current_client"
 SESSION_KEY_CLIENT_NAME = "client_name"
+SESSION_KEY_CLIENT_NAME_KANA = "client_name_kana"
 SESSION_KEY_CLIENT_BIRTH_DATE = "client_birth_date"
 SESSION_KEY_CLIENT_BIRTH_TIME = "client_birth_time"
 SESSION_KEY_CLIENT_GENDER = "client_gender"

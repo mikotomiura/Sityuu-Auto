@@ -108,6 +108,12 @@ def initialize_database(conn: sqlite3.Connection) -> None:
         try:
             sql = migration_file.read_text(encoding="utf-8")
             conn.executescript(sql)
+        except sqlite3.OperationalError as e:
+            # ALTER TABLE での「duplicate column」エラーは冪等実行として許容する
+            if "duplicate column name" in str(e):
+                logger.info("カラム既存のためスキップ: %s (%s)", migration_file.name, e)
+            else:
+                raise DatabaseError(f"マイグレーション失敗 ({migration_file.name}): {e}") from e
         except sqlite3.Error as e:
             raise DatabaseError(f"マイグレーション失敗 ({migration_file.name}): {e}") from e
 
