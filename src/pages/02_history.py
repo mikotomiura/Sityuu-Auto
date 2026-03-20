@@ -8,7 +8,9 @@ import streamlit as st
 from pydantic import ValidationError
 
 from components.history_table import render_history_table
+from components.pdf_export import build_fallback_pdf
 from components.reading_result import render_reading_result
+from utils.exceptions import PDFExportError
 from config import (
     SESSION_KEY_HISTORY_SEARCH_QUERY,
     SESSION_KEY_HISTORY_SELECTED_SESSION,
@@ -155,21 +157,39 @@ def _render_detail_view(session_repo: SessionRepository) -> None:
             st.markdown("### 傾聴のヒント")
             st.markdown(session.ai_listening_hints)
 
-        # 命式なしでもMDエクスポートを提供
+        # 命式なしでもエクスポートを提供
         if session.ai_reading_text:
             md_content = _build_fallback_markdown(
                 client_name=client_name,
                 ai_text=session.ai_reading_text,
                 listening_hints=session.ai_listening_hints,
             )
-            file_name = f"鑑定レポート_{client_name}_{created_date}.md"
-            st.download_button(
-                label="鑑定レポートをMarkdownで保存",
-                data=md_content,
-                file_name=file_name,
-                mime="text/markdown",
-                use_container_width=True,
-            )
+            col_md, col_pdf = st.columns(2)
+            with col_md:
+                st.download_button(
+                    label="Markdownで保存",
+                    data=md_content,
+                    file_name=f"鑑定レポート_{client_name}_{created_date}.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                )
+            with col_pdf:
+                try:
+                    pdf_data = build_fallback_pdf(
+                        client_name=client_name,
+                        ai_text=session.ai_reading_text,
+                        listening_hints=session.ai_listening_hints,
+                    )
+                    st.download_button(
+                        label="PDFで保存",
+                        data=pdf_data,
+                        file_name=f"鑑定レポート_{client_name}_{created_date}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+                except PDFExportError:
+                    logger.exception("PDF生成に失敗しました")
+                    st.error("PDF生成に失敗しました。")
 
 
 def _build_fallback_markdown(

@@ -19,3 +19,7 @@ class AIServiceConfigError(AIServiceError):
 
 class DatabaseError(FortuneAppError):
     """DB操作エラー。"""
+
+
+class PDFExportError(FortuneAppError):
+    """PDFエクスポートエラー。"""

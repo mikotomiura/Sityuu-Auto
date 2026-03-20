@@ -62,3 +62,26 @@ class SessionRecord:
     api_model: str | None
     created_at: str
     updated_at: str
+
+
+@dataclass(frozen=True)
+class PromptTemplateRecord:
+    """プロンプトテンプレートテーブルのレコード。
+
+    Attributes:
+        id: UUID 文字列。
+        name: テンプレート名（ユニーク）。
+        system_prompt: システムプロンプト本文。
+        description: テンプレートの説明。
+        is_default: デフォルトテンプレートかどうか（1=デフォルト）。
+        created_at: 作成日時（ISO 8601 形式）。
+        updated_at: 更新日時（ISO 8601 形式）。
+    """
+
+    id: str
+    name: str
+    system_prompt: str
+    description: str | None
+    is_default: int
+    created_at: str
+    updated_at: str

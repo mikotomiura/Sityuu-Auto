@@ -27,9 +27,11 @@ from config import (
     SESSION_KEY_CONCERN,
     SESSION_KEY_FORTUNE_RESULT,
     SESSION_KEY_LISTENING_HINTS,
+    SESSION_KEY_SELECTED_TEMPLATE,
 )
 from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
+from db_service.repositories.prompt_template_repo import PromptTemplateRepository
 from db_service.repositories.session_repo import SessionRepository
 from fortune_engine import calculate_fortune, format_for_ai_prompt
 from fortune_engine.models import FortuneResult
@@ -218,6 +220,38 @@ def main() -> None:
         render_reading_result(result=result)
         return
 
+    # --- テンプレート選択 ---
+    conn = get_db_connection()
+    template_repo = PromptTemplateRepository(conn)
+    try:
+        templates = template_repo.find_all()
+    except DatabaseError:
+        templates = []
+
+    custom_system_prompt: str | None = None
+    if templates:
+        # デフォルトテンプレートのインデックスを検索
+        default_idx = 0
+        selected_id = st.session_state.get(SESSION_KEY_SELECTED_TEMPLATE)
+        for i, t in enumerate(templates):
+            if selected_id and t.id == selected_id:
+                default_idx = i
+                break
+            if not selected_id and t.is_default:
+                default_idx = i
+                break
+
+        selected_template = st.selectbox(
+            "プロンプトテンプレート",
+            options=templates,
+            index=default_idx,
+            format_func=lambda t: f"{t.name} (デフォルト)" if t.is_default else t.name,
+            help="AI鑑定レポート生成に使用するシステムプロンプトを選択します。",
+        )
+        if selected_template:
+            st.session_state[SESSION_KEY_SELECTED_TEMPLATE] = selected_template.id
+            custom_system_prompt = selected_template.system_prompt
+
     if st.button("AI鑑定レポートを生成", type="primary", use_container_width=True):
         if not concern:
             st.error("悩みテキストが見つかりません。フォームから再度入力してください。")
@@ -232,6 +266,7 @@ def main() -> None:
                 system_prompt, user_prompt = build_reading_prompt(
                     natal_chart_text=prompt_text,
                     concern=concern,
+                    custom_system_prompt=custom_system_prompt,
                 )
                 ai_text = llm.generate(system_prompt, user_prompt)
                 st.session_state[SESSION_KEY_AI_RESPONSE] = ai_text

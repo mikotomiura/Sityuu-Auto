@@ -71,6 +71,29 @@ class TestBuildReadingPrompt:
         assert "具体的なアドバイス" in user
 
 
+    def test_custom_system_prompt_overrides_default(self) -> None:
+        """custom_system_prompt が指定された場合にデフォルトが上書きされること。"""
+        custom = "あなたはカスタム鑑定師です。"
+        system, _user = build_reading_prompt(
+            natal_chart_text=SAMPLE_NATAL_CHART_TEXT,
+            concern=SAMPLE_CONCERN,
+            custom_system_prompt=custom,
+        )
+
+        assert system == custom
+        assert "カウンセラー" not in system
+
+    def test_none_custom_prompt_uses_default(self) -> None:
+        """custom_system_prompt が None の場合はデフォルトが使用されること。"""
+        system, _user = build_reading_prompt(
+            natal_chart_text=SAMPLE_NATAL_CHART_TEXT,
+            concern=SAMPLE_CONCERN,
+            custom_system_prompt=None,
+        )
+
+        assert "カウンセラー" in system
+
+
 class TestBuildListeningHintPrompt:
     """build_listening_hint_prompt のテスト。"""
 
@@ -112,3 +135,14 @@ class TestBuildListeningHintPrompt:
 
         assert "傾聴のポイント" in user
         assert "声掛け" in user
+
+    def test_custom_system_prompt_overrides_default(self) -> None:
+        """custom_system_prompt が指定された場合にデフォルトが上書きされること。"""
+        custom = "あなたはカスタム傾聴アドバイザーです。"
+        system, _user = build_listening_hint_prompt(
+            natal_chart_text=SAMPLE_NATAL_CHART_TEXT,
+            concern=SAMPLE_CONCERN,
+            custom_system_prompt=custom,
+        )
+
+        assert system == custom

@@ -6,8 +6,14 @@ import pytest
 
 from fortune_engine.models import (
     FiveElement,
+    FortuneResult,
+    HumanStarChart,
+    JudaiShusei,
+    JuniDaiJusei,
     NatalChart,
     Pillar,
+    SanmeiData,
+    TenchusatsuGroup,
     YinYang,
 )
 
@@ -67,4 +73,36 @@ def sample_natal_chart() -> NatalChart:
             FiveElement.WATER: 0,
         },
         xun_kong="申酉",
+    )
+
+
+@pytest.fixture()
+def sample_sanmei_data() -> SanmeiData:
+    """テスト用の算命学データ。"""
+    return SanmeiData(
+        human_star_chart=HumanStarChart(
+            center_star=JudaiShusei.KANSAKU,
+            north_star=JudaiShusei.KANSAKU,
+            south_star=JudaiShusei.SHIROKU,
+            east_star=JudaiShusei.SHAKI,
+            west_star=JudaiShusei.HOUKAKU,
+            companion_star=JudaiShusei.SEKIMON,
+            north_twelve=JuniDaiJusei.TENPOU,
+            south_twelve=JuniDaiJusei.TENROKU,
+            west_twelve=JuniDaiJusei.TENSHOU,
+        ),
+        tenchusatsu=TenchusatsuGroup.SARU_TORI,
+        total_energy=26,
+    )
+
+
+@pytest.fixture()
+def sample_fortune_result(
+    sample_natal_chart: NatalChart,
+    sample_sanmei_data: SanmeiData,
+) -> FortuneResult:
+    """テスト用の命式算出結果。"""
+    return FortuneResult(
+        natal_chart=sample_natal_chart,
+        sanmei_data=sample_sanmei_data,
     )

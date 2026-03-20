@@ -24,6 +24,10 @@ SESSION_KEY_HISTORY_SEARCH_QUERY = "history_search_query"
 SESSION_KEY_CLIENTS_SELECTED = "clients_selected_client"
 SESSION_KEY_CLIENTS_SEARCH_QUERY = "clients_search_query"
 
+# --- テンプレート管理用 ---
+SESSION_KEY_SELECTED_TEMPLATE = "selected_template_id"
+SESSION_KEY_TEMPLATE_EDIT_ID = "template_edit_id"
+
 # --- アプリケーション設定 ---
 APP_TITLE = "Sityuu-Auto-占い・メンタリング支援システム-"
 APP_ICON = "\U0001f52e"

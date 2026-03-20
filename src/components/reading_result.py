@@ -1,17 +1,22 @@
 """鑑定結果表示コンポーネント。"""
 
+import logging
 from datetime import datetime
 
 import pandas as pd
 import streamlit as st
 
 from components.natal_chart_display import render_natal_chart
+from components.pdf_export import build_reading_report_pdf
+from utils.exceptions import PDFExportError
 from fortune_engine.formatter import (
     format_for_ai_prompt,
     format_for_display,
     format_human_star_chart_grid,
 )
 from fortune_engine.models import FortuneResult, SanmeiData
+
+logger = logging.getLogger(__name__)
 
 
 def render_reading_result(
@@ -67,7 +72,7 @@ def render_reading_result(
         with tabs[tab_index]:
             _render_listening_hints(listening_hints)
 
-    # ===== MDエクスポートボタン =====
+    # ===== エクスポートボタン =====
     if ai_text:
         md_content = build_reading_report_markdown(
             result=result,
@@ -77,15 +82,34 @@ def render_reading_result(
         )
         today = datetime.now().strftime("%Y%m%d")
         name_part = client_name or "unknown"
-        file_name = f"鑑定レポート_{name_part}_{today}.md"
 
-        st.download_button(
-            label="鑑定レポートをMarkdownで保存",
-            data=md_content,
-            file_name=file_name,
-            mime="text/markdown",
-            use_container_width=True,
-        )
+        col_md, col_pdf = st.columns(2)
+        with col_md:
+            st.download_button(
+                label="Markdownで保存",
+                data=md_content,
+                file_name=f"鑑定レポート_{name_part}_{today}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+        with col_pdf:
+            try:
+                pdf_data = build_reading_report_pdf(
+                    result=result,
+                    ai_text=ai_text,
+                    listening_hints=listening_hints,
+                    client_name=client_name,
+                )
+                st.download_button(
+                    label="PDFで保存",
+                    data=pdf_data,
+                    file_name=f"鑑定レポート_{name_part}_{today}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            except PDFExportError:
+                logger.exception("PDF生成に失敗しました")
+                st.error("PDF生成に失敗しました。Markdownでの保存をお試しください。")
 
 
 def _render_human_star_chart(
