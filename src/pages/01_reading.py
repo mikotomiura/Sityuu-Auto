@@ -12,11 +12,14 @@ from components.input_form import render_client_input_form
 from components.natal_chart_display import render_natal_chart
 from components.reading_result import render_reading_result
 from config import (
+    API_KEY_ENV_MAP,
     API_TIMEOUT_SECONDS,
     DEFAULT_API_PROVIDER,
     DEFAULT_MODEL,
     GEMINI_FALLBACK_MODELS,
     SESSION_KEY_AI_RESPONSE,
+    SESSION_KEY_API_MODEL,
+    SESSION_KEY_API_PROVIDER,
     SESSION_KEY_CLIENT_BIRTH_DATE,
     SESSION_KEY_CLIENT_BIRTH_TIME,
     SESSION_KEY_CLIENT_GENDER,
@@ -67,23 +70,27 @@ def _get_api_key(provider: str) -> str | None:
     Returns:
         APIキー文字列。未設定の場合はNone。
     """
-    key_map = {
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-        "gemini": "GEMINI_API_KEY",
-    }
-    env_var = key_map.get(provider)
+    env_var = API_KEY_ENV_MAP.get(provider)
     if env_var:
         return os.environ.get(env_var)
     return None
 
 
-def _create_llm_client(provider: str, api_key: str) -> LLMClient:
-    """LLMクライアントを生成する。"""
+def _create_llm_client(provider: str, api_key: str, model: str) -> LLMClient:
+    """LLMクライアントを生成する。
+
+    Args:
+        provider: APIプロバイダー名。
+        api_key: APIキー文字列。
+        model: 使用するモデル名。
+
+    Returns:
+        設定済みの LLMClient インスタンス。
+    """
     return create_client(
         provider=provider,
         api_key=api_key,
-        model=DEFAULT_MODEL,
+        model=model,
         timeout=API_TIMEOUT_SECONDS,
         fallback_models=GEMINI_FALLBACK_MODELS if provider == "gemini" else None,
     )
@@ -134,8 +141,8 @@ def _save_session_to_db(
             sanmei_data_json=result.sanmei_data.model_dump_json(),
             ai_reading_text=ai_text,
             ai_listening_hints=listening_hints,
-            api_provider=DEFAULT_API_PROVIDER,
-            api_model=DEFAULT_MODEL,
+            api_provider=st.session_state.get(SESSION_KEY_API_PROVIDER, DEFAULT_API_PROVIDER),
+            api_model=st.session_state.get(SESSION_KEY_API_MODEL, DEFAULT_MODEL),
         )
 
         st.success("鑑定結果を保存しました。")
@@ -198,7 +205,8 @@ def main() -> None:
     st.markdown("---")
 
     # --- Step 4: AI鑑定テキスト生成 ---
-    provider = DEFAULT_API_PROVIDER
+    provider = st.session_state.get(SESSION_KEY_API_PROVIDER, DEFAULT_API_PROVIDER)
+    model = st.session_state.get(SESSION_KEY_API_MODEL, DEFAULT_MODEL)
     api_key = _get_api_key(provider)
 
     if not api_key:
@@ -216,7 +224,7 @@ def main() -> None:
             return
 
         prompt_text = format_for_ai_prompt(result)
-        llm = _create_llm_client(provider, api_key)
+        llm = _create_llm_client(provider, api_key, model)
 
         # --- 鑑定レポート生成 ---
         try:

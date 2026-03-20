@@ -25,6 +25,8 @@ st.sidebar.markdown("---")
 
 reading_page = st.Page("pages/01_reading.py", title="鑑定", icon="\u2728")
 history_page = st.Page("pages/02_history.py", title="鑑定履歴", icon="\U0001f4cb")
+clients_page = st.Page("pages/03_clients.py", title="相談者管理", icon="\U0001f465")
+settings_page = st.Page("pages/04_settings.py", title="設定", icon="\u2699\ufe0f")
 
-pg = st.navigation([reading_page, history_page])
+pg = st.navigation([reading_page, history_page, clients_page, settings_page])
 pg.run()

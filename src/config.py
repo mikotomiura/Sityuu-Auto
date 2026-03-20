@@ -20,6 +20,10 @@ SESSION_KEY_API_MODEL = "api_model"
 SESSION_KEY_HISTORY_SELECTED_SESSION = "history_selected_session"
 SESSION_KEY_HISTORY_SEARCH_QUERY = "history_search_query"
 
+# --- 相談者管理ページ用 ---
+SESSION_KEY_CLIENTS_SELECTED = "clients_selected_client"
+SESSION_KEY_CLIENTS_SEARCH_QUERY = "clients_search_query"
+
 # --- アプリケーション設定 ---
 APP_TITLE = "Sityuu-Auto-占い・メンタリング支援システム-"
 APP_ICON = "\U0001f52e"
@@ -31,6 +35,22 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 API_TIMEOUT_SECONDS = 30
 API_MAX_TOKENS = 2000
 API_TEMPERATURE = 0.7
+
+# --- プロバイダー別デフォルトモデル ---
+PROVIDER_DEFAULT_MODELS: dict[str, str] = {
+    "gemini": "gemini-2.5-flash",
+    "openai": "gpt-4o",
+    "anthropic": "claude-sonnet-4-20250514",
+}
+
+SUPPORTED_PROVIDERS: list[str] = ["gemini", "openai", "anthropic"]
+
+# --- プロバイダー別APIキー環境変数名 ---
+API_KEY_ENV_MAP: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+}
 
 # --- Gemini フォールバックモデルリスト ---
 # 利用可不可が変動するため、順番に試行する
