@@ -43,23 +43,23 @@ def format_for_ai_prompt(result: FortuneResult) -> str:
     else:
         lines.append("  時柱: 不明")
 
-    balance_str = " ".join(
-        f"{e.value}:{c}" for e, c in nc.five_elements_balance.items()
-    )
+    balance_str = " ".join(f"{e.value}:{c}" for e, c in nc.five_elements_balance.items())
     lines.append(f"  五行バランス: {balance_str}")
 
-    lines.extend([
-        "",
-        "【算命学 人体星図】",
-        f"  中央（胸）: {hsc.center_star.value}",
-        f"  北方（頭）: {hsc.north_star.value}  / {hsc.north_twelve.value}",
-        f"  南方（腹）: {hsc.south_star.value}  / {hsc.south_twelve.value}",
-        f"  東方（左手）: {hsc.east_star.value}",
-        f"  西方（右手）: {hsc.west_star.value}  / {hsc.west_twelve.value}",
-        f"  伴星: {hsc.companion_star.value}",
-        f"  天中殺: {sd.tenchusatsu.value}",
-        f"  エネルギー合計: {sd.total_energy}",
-    ])
+    lines.extend(
+        [
+            "",
+            "【算命学 人体星図】",
+            f"  中央（胸）: {hsc.center_star.value}",
+            f"  北方（頭）: {hsc.north_star.value}  / {hsc.north_twelve.value}",
+            f"  南方（腹）: {hsc.south_star.value}  / {hsc.south_twelve.value}",
+            f"  東方（左手）: {hsc.east_star.value}",
+            f"  西方（右手）: {hsc.west_star.value}  / {hsc.west_twelve.value}",
+            f"  伴星: {hsc.companion_star.value}",
+            f"  天中殺: {sd.tenchusatsu.value}",
+            f"  エネルギー合計: {sd.total_energy}",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -94,16 +94,18 @@ def format_for_display(result: FortuneResult) -> dict[str, Any]:
         pillar_entries.append(("時柱", nc.hour_pillar))
 
     for name, pillar in pillar_entries:
-        pillars.append({
-            "柱": name,
-            "干支": pillar.ganshi,
-            "天干": pillar.stem,
-            "地支": pillar.branch,
-            "五行（天干）": pillar.stem_element.value,
-            "五行（地支）": pillar.branch_element.value,
-            "陰陽": pillar.yinyang.value,
-            "納音": pillar.nayin,
-        })
+        pillars.append(
+            {
+                "柱": name,
+                "干支": pillar.ganshi,
+                "天干": pillar.stem,
+                "地支": pillar.branch,
+                "五行（天干）": pillar.stem_element.value,
+                "五行（地支）": pillar.branch_element.value,
+                "陰陽": pillar.yinyang.value,
+                "納音": pillar.nayin,
+            }
+        )
 
     human_star_chart: dict[str, str] = {
         "中央（胸）": hsc.center_star.value,
@@ -187,23 +189,11 @@ def format_human_star_chart_grid(chart: HumanStarChart) -> str:
     # 行2: 北方（十二大従星）— 中央列に配置
     row2 = " " * east_width + "  " + _pad_center(north_tw, center_width)
     # 行3: 東方 / 中央 / 西方
-    row3 = (
-        _pad_right(east, east_width)
-        + "  "
-        + _pad_center(center, center_width)
-        + "  "
-        + west
-    )
+    row3 = _pad_right(east, east_width) + "  " + _pad_center(center, center_width) + "  " + west
     # 行4: 南方（十大主星）— 中央列に配置
     row4 = " " * east_width + "  " + _pad_center(south, center_width)
     # 行5: 南方従星（左） / 西方従星（右）
-    row5 = (
-        _pad_right(south_tw, east_width)
-        + "  "
-        + " " * center_width
-        + "  "
-        + west_tw
-    )
+    row5 = _pad_right(south_tw, east_width) + "  " + " " * center_width + "  " + west_tw
 
     return "\n".join(line.rstrip() for line in [row1, row2, row3, row4, row5])
 

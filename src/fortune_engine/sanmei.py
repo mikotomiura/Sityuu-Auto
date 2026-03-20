@@ -75,9 +75,7 @@ def calculate_sanmei_data(natal_chart: NatalChart) -> SanmeiData:
         tenchusatsu = XUNKONG_TO_TENCHUSATSU[natal_chart.xun_kong]
 
         # --- エネルギー ---
-        total_energy = sum(
-            JUNIDAI_ENERGY[s] for s in [north_twelve, south_twelve, west_twelve]
-        )
+        total_energy = sum(JUNIDAI_ENERGY[s] for s in [north_twelve, south_twelve, west_twelve])
 
         human_chart = HumanStarChart(
             center_star=center,
@@ -94,9 +92,7 @@ def calculate_sanmei_data(natal_chart: NatalChart) -> SanmeiData:
     except FortuneCalculationError:
         raise
     except (KeyError, ValueError, TypeError, AttributeError) as exc:
-        logger.error(
-            "算命学データ算出中にエラーが発生しました: %s", type(exc).__name__
-        )
+        logger.error("算命学データ算出中にエラーが発生しました: %s", type(exc).__name__)
         msg = "算命学データの算出に失敗しました"
         raise FortuneCalculationError(msg) from exc
 

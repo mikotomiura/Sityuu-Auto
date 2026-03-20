@@ -4,7 +4,7 @@
 
 Usage:
     python scripts/init_db.py
-    python scripts/init_db.py --db-path data/fortune.db
+    python scripts/init_db.py --db-path data/fortune.sqlite3
 """
 
 import argparse
@@ -16,8 +16,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.db_service.database import create_connection, initialize_database
-from src.utils.exceptions import DatabaseError
+from src.config import DB_PATH  # noqa: E402
+from src.db_service.database import create_connection, initialize_database  # noqa: E402
+from src.utils.exceptions import DatabaseError  # noqa: E402
 
 
 def main() -> None:
@@ -26,8 +27,8 @@ def main() -> None:
     parser.add_argument(
         "--db-path",
         type=Path,
-        default=Path("data/fortune.db"),
-        help="DBファイルのパス（デフォルト: data/fortune.db）",
+        default=DB_PATH,
+        help=f"DBファイルのパス（デフォルト: {DB_PATH}）",
     )
     args = parser.parse_args()
 

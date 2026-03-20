@@ -84,9 +84,18 @@ class SessionRepository:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    session_id, client_id, concern, natal_chart_json,
-                    sanmei_data_json, ai_reading_text, ai_listening_hints,
-                    mentor_notes, api_provider, api_model, now, now,
+                    session_id,
+                    client_id,
+                    concern,
+                    natal_chart_json,
+                    sanmei_data_json,
+                    ai_reading_text,
+                    ai_listening_hints,
+                    mentor_notes,
+                    api_provider,
+                    api_model,
+                    now,
+                    now,
                 ),
             )
             self._conn.commit()

@@ -2,7 +2,12 @@
 .env
 
 # ローカルデータ
-data/fortune.db
+data/fortune.sqlite3
+data/*.sqlite3
+data/*.sqlite3-shm
+data/*.sqlite3-wal
+data/*.sqlite3-journal
+# 旧拡張子（移行期間中の互換性）
 data/*.db
 data/*.db-shm
 data/*.db-wal

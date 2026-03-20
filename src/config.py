@@ -1,5 +1,7 @@
 """アプリケーション定数・設定値の定義。"""
 
+from pathlib import Path
+
 # --- session_state キー ---
 SESSION_KEY_CLIENT_CURRENT = "current_client"
 SESSION_KEY_CLIENT_NAME = "client_name"
@@ -17,7 +19,7 @@ SESSION_KEY_API_MODEL = "api_model"
 # --- アプリケーション設定 ---
 APP_TITLE = "Sityuu-Auto-占い・メンタリング支援システム-"
 APP_ICON = "\U0001f52e"
-DB_PATH = "data/fortune.db"
+DB_PATH = Path(__file__).resolve().parent.parent / "data" / "fortune.sqlite3"
 
 # --- API設定 ---
 DEFAULT_API_PROVIDER = "gemini"

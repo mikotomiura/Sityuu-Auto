@@ -72,9 +72,7 @@ class OpenAIClient(LLMClient):
             raise AIServiceConfigError("APIキーが無効です。設定を確認してください。") from e
         except openai.RateLimitError as e:
             logger.warning("OpenAI レート制限")
-            raise AIServiceError(
-                "API呼び出し制限に達しました。しばらくお待ちください。"
-            ) from e
+            raise AIServiceError("API呼び出し制限に達しました。しばらくお待ちください。") from e
         except openai.APITimeoutError as e:
             logger.warning("OpenAI タイムアウト")
             raise AIServiceError("API応答がタイムアウトしました。") from e
@@ -117,9 +115,7 @@ class AnthropicClient(LLMClient):
             raise AIServiceConfigError("APIキーが無効です。設定を確認してください。") from e
         except anthropic.RateLimitError as e:
             logger.warning("Anthropic レート制限")
-            raise AIServiceError(
-                "API呼び出し制限に達しました。しばらくお待ちください。"
-            ) from e
+            raise AIServiceError("API呼び出し制限に達しました。しばらくお待ちください。") from e
         except anthropic.APITimeoutError as e:
             logger.warning("Anthropic タイムアウト")
             raise AIServiceError("API応答がタイムアウトしました。") from e
@@ -193,9 +189,7 @@ class GeminiClient(LLMClient):
                 last_error = e
                 if _is_auth_error(e):
                     logger.error("Gemini 認証エラー")
-                    raise AIServiceConfigError(
-                        "APIキーが無効です。設定を確認してください。"
-                    ) from e
+                    raise AIServiceConfigError("APIキーが無効です。設定を確認してください。") from e
                 if _is_retryable_error(e):
                     logger.warning(
                         "Gemini モデル %s 利用不可 (code=%s), 次のモデルへフォールバック",

@@ -6,13 +6,16 @@ import re
 import sqlite3
 from pathlib import Path
 
+from config import DB_PATH
 from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "fortune.db"
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 _MIGRATION_FILENAME_PATTERN = re.compile(r"^\d{3}_[\w]+\.sql$")
+
+# 旧拡張子 .db → .sqlite3 への移行マッピング
+_OLD_DB_EXTENSION = ".db"
 
 
 def create_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
@@ -34,6 +37,9 @@ def create_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
         db_path = Path(db_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # 旧拡張子(.db)のファイルが存在し、新ファイルが未作成の場合は自動リネーム
+        _migrate_old_db_file(db_path)
+
         conn = sqlite3.connect(str(db_path), check_same_thread=False)
 
         # 個人情報を含むDBファイルのパーミッションを所有者のみに制限
@@ -47,6 +53,33 @@ def create_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
         return conn
     except sqlite3.Error as e:
         raise DatabaseError(f"DB接続に失敗しました: {e}") from e
+
+
+def _migrate_old_db_file(db_path: Path) -> None:
+    """旧拡張子(.db)のDBファイルを新拡張子(.sqlite3)にリネームする。
+
+    新ファイルが存在しない場合のみリネームを行う。
+    旧ファイルに付随するWAL/SHMファイルも同時にリネームする。
+
+    Args:
+        db_path: 新しい拡張子のDBファイルパス。
+    """
+    if db_path.suffix != ".sqlite3":
+        return
+
+    old_path = db_path.with_suffix(_OLD_DB_EXTENSION)
+    if not old_path.exists() or db_path.exists():
+        return
+
+    logger.info("旧DBファイルを移行: %s → %s", old_path.name, db_path.name)
+    old_path.rename(db_path)
+
+    # WAL/SHMファイルも移行
+    for ext in (".db-wal", ".db-shm"):
+        old_aux = old_path.parent / (old_path.stem + ext)
+        if old_aux.exists():
+            new_aux = db_path.parent / (db_path.stem + ext.replace(".db", ".sqlite3"))
+            old_aux.rename(new_aux)
 
 
 def initialize_database(conn: sqlite3.Connection) -> None:
@@ -63,8 +96,7 @@ def initialize_database(conn: sqlite3.Connection) -> None:
         DatabaseError: マイグレーション実行に失敗した場合。
     """
     migration_files = sorted(
-        f for f in MIGRATIONS_DIR.glob("*.sql")
-        if _MIGRATION_FILENAME_PATTERN.match(f.name)
+        f for f in MIGRATIONS_DIR.glob("*.sql") if _MIGRATION_FILENAME_PATTERN.match(f.name)
     )
 
     if not migration_files:
@@ -77,9 +109,7 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             sql = migration_file.read_text(encoding="utf-8")
             conn.executescript(sql)
         except sqlite3.Error as e:
-            raise DatabaseError(
-                f"マイグレーション失敗 ({migration_file.name}): {e}"
-            ) from e
+            raise DatabaseError(f"マイグレーション失敗 ({migration_file.name}): {e}") from e
 
     conn.commit()
     logger.info("DB初期化完了")

@@ -8,7 +8,8 @@ import sqlite3
 
 import streamlit as st
 
-from db_service.database import DB_PATH, create_connection, initialize_database
+from config import DB_PATH
+from db_service.database import create_connection, initialize_database
 
 
 @st.cache_resource

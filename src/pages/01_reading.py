@@ -231,7 +231,8 @@ def main() -> None:
             st.error("API設定に問題があります。`.env` ファイルのAPIキーを確認してください。")
             return
         except AIServiceError as e:
-            st.error(f"AI鑑定レポートの生成に失敗しました: {e}")
+            logger.error("AI鑑定レポートの生成に失敗: %s", e)
+            st.error("AI鑑定レポートの生成に失敗しました。しばらくしてから再度お試しください。")
             return
 
         # --- 傾聴ヒント生成 ---
@@ -257,6 +258,7 @@ def main() -> None:
             result=result,
             ai_text=ai_response,
             listening_hints=hints_response,
+            client_name=st.session_state.get(SESSION_KEY_CLIENT_NAME),
         )
 
         # --- 保存ボタン ---
