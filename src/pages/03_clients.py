@@ -133,9 +133,17 @@ def _render_detail_view(
 
     st.caption(f"登録日: {client.created_at[:10]} | 更新日: {client.updated_at[:10]}")
 
-    # --- メモ編集 ---
+    # --- フリガナ・メモ編集 ---
     st.markdown("---")
-    st.markdown("#### メモ")
+    st.markdown("#### 相談者情報の編集")
+
+    current_kana = client.name_kana or ""
+    new_kana = st.text_input(
+        "フリガナ",
+        value=current_kana,
+        max_chars=50,
+        placeholder="例: ヤマダ タロウ",
+    )
 
     current_notes = client.notes or ""
     new_notes = st.text_area(
@@ -143,20 +151,27 @@ def _render_detail_view(
         value=current_notes,
         height=120,
         placeholder="相談者に関するメモを入力...",
-        label_visibility="collapsed",
     )
 
-    if st.button("メモを保存", use_container_width=True):
-        if new_notes != current_notes:
+    if st.button("変更を保存", use_container_width=True):
+        kana_changed = new_kana.strip() != current_kana
+        notes_changed = new_notes != current_notes
+
+        if not kana_changed and not notes_changed:
+            st.info("変更はありません。")
+        else:
             try:
-                client_repo.update(client_id=client_id, notes=new_notes)
-                st.success("メモを保存しました。")
+                update_kwargs: dict[str, str] = {}
+                if kana_changed:
+                    update_kwargs["name_kana"] = new_kana.strip() or None
+                if notes_changed:
+                    update_kwargs["notes"] = new_notes
+                client_repo.update(client_id=client_id, **update_kwargs)
+                st.success("相談者情報を更新しました。")
                 st.rerun()
             except DatabaseError as e:
-                logger.error("メモの保存に失敗: %s", e)
-                st.error("メモの保存に失敗しました。")
-        else:
-            st.info("変更はありません。")
+                logger.error("相談者情報の更新に失敗: %s", e)
+                st.error("更新に失敗しました。")
 
     # --- 鑑定履歴サマリ ---
     st.markdown("---")

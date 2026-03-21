@@ -163,6 +163,27 @@ class TestClientRepositoryUpdate:
         assert record is not None
         assert record.name == "山田次郎"
 
+    def test_update_name_kana(self, client_repo: ClientRepository, saved_client_id: str) -> None:
+        """フリガナの更新が反映されること。"""
+        result = client_repo.update(saved_client_id, name_kana="ヤマダ ジロウ")
+        assert result is True
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.name_kana == "ヤマダ ジロウ"
+
+    def test_update_name_kana_to_empty(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """フリガナを空文字列で更新できること。"""
+        client_repo.update(saved_client_id, name_kana="テスト")
+        result = client_repo.update(saved_client_id, name_kana="")
+        assert result is True
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.name_kana == ""
+
     def test_update_notes(self, client_repo: ClientRepository, saved_client_id: str) -> None:
         """メモの更新が反映されること。"""
         result = client_repo.update(saved_client_id, notes="新しいメモ")

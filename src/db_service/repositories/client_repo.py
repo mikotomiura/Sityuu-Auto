@@ -189,6 +189,7 @@ class ClientRepository:
         self,
         client_id: str,
         name: str | None = None,
+        name_kana: str | None = None,
         notes: str | None = None,
     ) -> bool:
         """相談者情報を更新する。
@@ -196,6 +197,7 @@ class ClientRepository:
         Args:
             client_id: 相談者の UUID。
             name: 更新する名前（None の場合は変更しない）。
+            name_kana: 更新するフリガナ（None の場合は変更しない）。
             notes: 更新するメモ（None の場合は変更しない）。
 
         Returns:
@@ -212,6 +214,9 @@ class ClientRepository:
         if name is not None:
             updates.append("name = ?")
             params.append(name)
+        if name_kana is not None:
+            updates.append("name_kana = ?")
+            params.append(name_kana)
         if notes is not None:
             updates.append("notes = ?")
             params.append(notes)
