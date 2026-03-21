@@ -11,7 +11,7 @@ from config import (
     SESSION_KEY_CLIENTS_SELECTED,
 )
 from db_init import get_db_connection
-from db_service.repositories.client_repo import UNSET, ClientRepository
+from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from utils.exceptions import DatabaseError
 
@@ -127,77 +127,86 @@ def _render_detail_view(
     st.subheader(client.name)
     st.caption(f"登録日: {client.created_at[:10]} | 更新日: {client.updated_at[:10]}")
 
+    # --- 更新成功メッセージ（rerun後に表示） ---
+    if st.session_state.pop("client_edit_success", False):
+        st.success("相談者情報を更新しました。")
+
     # --- 相談者情報の編集 ---
     st.markdown("---")
     st.markdown("#### 相談者情報の編集")
     st.caption("※ 生年月日・出生時間を変更しても、過去の鑑定結果の命式は更新されません。")
 
-    # 名前・フリガナ
-    col_name, col_kana = st.columns(2)
     current_name = client.name
-    new_name = col_name.text_input(
-        "名前",
-        value=current_name,
-        max_chars=50,
-        placeholder="例: 山田 太郎",
-    )
     current_kana = client.name_kana or ""
-    new_kana = col_kana.text_input(
-        "フリガナ",
-        value=current_kana,
-        max_chars=50,
-        placeholder="例: ヤマダ タロウ",
-    )
-
-    # 生年月日・出生時間・性別
-    col_bd, col_bt, col_gender = st.columns(3)
-
     current_birth_date = date.fromisoformat(client.birth_date)
-    new_birth_date = col_bd.date_input(
-        "生年月日",
-        value=current_birth_date,
-        min_value=date(1900, 1, 1),
-        max_value=date.today(),
-    )
-
-    # 出生時間: "HH:MM" or None
     current_birth_time = client.birth_time
-    has_birth_time = current_birth_time is not None
-    use_birth_time = col_bt.checkbox("出生時間あり", value=has_birth_time)
-    if use_birth_time:
+    current_gender = client.gender
+    current_notes = client.notes or ""
+
+    with st.form("client_edit_form"):
+        # 名前・フリガナ
+        col_name, col_kana = st.columns(2)
+        new_name = col_name.text_input(
+            "名前",
+            value=current_name,
+            max_chars=50,
+            placeholder="例: 山田 太郎",
+        )
+        new_kana = col_kana.text_input(
+            "フリガナ",
+            value=current_kana,
+            max_chars=50,
+            placeholder="例: ヤマダ タロウ",
+        )
+
+        # 生年月日・出生時間・性別
+        col_bd, col_bt, col_gender = st.columns(3)
+
+        new_birth_date = col_bd.date_input(
+            "生年月日",
+            value=current_birth_date,
+            min_value=date(1900, 1, 1),
+            max_value=date.today(),
+        )
+
+        # 出生時間: checkbox + time_input（form内なので常に両方表示）
+        has_birth_time = current_birth_time is not None
+        use_birth_time = col_bt.checkbox("出生時間あり", value=has_birth_time)
         default_time = (
             datetime.strptime(current_birth_time, "%H:%M").time()
             if current_birth_time
             else datetime.strptime("12:00", "%H:%M").time()
         )
-        new_birth_time_val = col_bt.time_input("出生時間", value=default_time)
-        new_birth_time: str | None = new_birth_time_val.strftime("%H:%M")
-    else:
-        new_birth_time = None
+        new_birth_time_val = col_bt.time_input(
+            "出生時間", value=default_time, disabled=not use_birth_time
+        )
+        new_birth_time: str | None = (
+            new_birth_time_val.strftime("%H:%M") if use_birth_time else None
+        )
 
-    # 性別
-    gender_options = ["未回答", "男性", "女性"]
-    current_gender = client.gender
-    current_gender_index = (
-        gender_options.index(current_gender) if current_gender in gender_options else 0
-    )
-    new_gender_display = col_gender.selectbox(
-        "性別",
-        options=gender_options,
-        index=current_gender_index,
-    )
-    new_gender: str | None = new_gender_display if new_gender_display != "未回答" else None
+        # 性別
+        gender_options = ["未回答", "男性", "女性"]
+        current_gender_index = (
+            gender_options.index(current_gender) if current_gender in gender_options else 0
+        )
+        new_gender_display = col_gender.selectbox(
+            "性別",
+            options=gender_options,
+            index=current_gender_index,
+        )
+        new_gender: str | None = new_gender_display if new_gender_display != "未回答" else None
 
-    # メモ
-    current_notes = client.notes or ""
-    new_notes = st.text_area(
-        "メモ（自由記述）",
-        value=current_notes,
-        height=120,
-        placeholder="相談者に関するメモを入力...",
-    )
+        # メモ
+        new_notes = st.text_area(
+            "メモ（自由記述）",
+            value=current_notes,
+            height=120,
+            placeholder="相談者に関するメモを入力...",
+        )
 
-    if st.button("変更を保存", use_container_width=True):
+        submitted = st.form_submit_button("変更を保存", use_container_width=True)
+
+    if submitted:
         # 変更検出
         name_changed = new_name.strip() != current_name
         kana_changed = new_kana.strip() != current_kana
@@ -232,16 +241,12 @@ def _render_detail_view(
                     update_kwargs["birth_date"] = new_birth_date
                 if birth_time_changed:
                     update_kwargs["birth_time"] = new_birth_time
-                else:
-                    update_kwargs["birth_time"] = UNSET
                 if gender_changed:
                     update_kwargs["gender"] = new_gender
-                else:
-                    update_kwargs["gender"] = UNSET
                 if notes_changed:
                     update_kwargs["notes"] = new_notes
                 client_repo.update(client_id=client_id, **update_kwargs)
-                st.success("相談者情報を更新しました。")
+                st.session_state["client_edit_success"] = True
                 st.rerun()
             except DatabaseError as e:
                 logger.error("相談者情報の更新に失敗: %s", e)
