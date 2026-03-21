@@ -93,8 +93,7 @@ class TestCalculateSanmeiData:
 
         chart = result.human_star_chart
         expected_energy = sum(
-            JUNIDAI_ENERGY[s]
-            for s in [chart.north_twelve, chart.south_twelve, chart.west_twelve]
+            JUNIDAI_ENERGY[s] for s in [chart.north_twelve, chart.south_twelve, chart.west_twelve]
         )
 
         assert result.total_energy == expected_energy

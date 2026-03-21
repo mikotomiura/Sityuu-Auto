@@ -44,6 +44,9 @@ API_TEMPERATURE = 0.7
 API_MAX_RETRIES = 2
 API_RETRY_BASE_WAIT = 1.0
 
+# --- UI表示設定 ---
+CONCERN_PREVIEW_LENGTH = 40
+
 # --- プロバイダー別デフォルトモデル ---
 PROVIDER_DEFAULT_MODELS: dict[str, str] = {
     "gemini": "gemini-2.5-flash",

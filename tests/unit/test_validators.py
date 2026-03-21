@@ -1,13 +1,12 @@
 """バリデーション関数のユニットテスト。"""
 
-from datetime import date, time, timedelta
+from datetime import date, timedelta
 
 import pytest
 
 from utils.validators import (
     validate_api_key,
     validate_birth_date,
-    validate_birth_time,
     validate_client_name,
     validate_concern,
 )
@@ -73,26 +72,6 @@ class TestValidateBirthDate:
     def test_boundary_min_date(self) -> None:
         """1900-01-01（最小境界）で None が返ること。"""
         assert validate_birth_date(date(1900, 1, 1)) is None
-
-
-class TestValidateBirthTime:
-    """validate_birth_time のテスト。"""
-
-    def test_valid_time(self) -> None:
-        """有効な時刻で None が返ること。"""
-        assert validate_birth_time(time(10, 30)) is None
-
-    def test_none_time(self) -> None:
-        """None（不明）で None が返ること。"""
-        assert validate_birth_time(None) is None
-
-    def test_midnight(self) -> None:
-        """0:00 で None が返ること。"""
-        assert validate_birth_time(time(0, 0)) is None
-
-    def test_end_of_day(self) -> None:
-        """23:59 で None が返ること。"""
-        assert validate_birth_time(time(23, 59)) is None
 
 
 class TestValidateConcern:

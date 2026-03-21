@@ -5,6 +5,7 @@ import logging
 import streamlit as st
 
 from config import (
+    CONCERN_PREVIEW_LENGTH,
     SESSION_KEY_CLIENTS_SEARCH_QUERY,
     SESSION_KEY_CLIENTS_SELECTED,
 )
@@ -63,13 +64,15 @@ def _render_list_view(
         st.info("相談者がまだ登録されていません。鑑定ページから鑑定を行うと自動登録されます。")
         return
 
+    # セッション数を一括取得（N+1問題の回避）
+    try:
+        session_counts = client_repo.count_sessions_by_client()
+    except DatabaseError:
+        session_counts = {}
+
     # --- 相談者カード ---
     for client in clients:
-        try:
-            sessions = session_repo.find_by_client_id(client.id)
-            session_count = len(sessions)
-        except DatabaseError:
-            session_count = 0
+        session_count = session_counts.get(client.id, 0)
 
         with st.container(border=True):
             col_info, col_action = st.columns([4, 1])
@@ -173,7 +176,11 @@ def _render_detail_view(
     st.caption(f"{len(sessions)} 件の鑑定")
 
     for s in sessions:
-        concern_preview = s.concern[:50] + "..." if len(s.concern) > 50 else s.concern
+        concern_preview = (
+            s.concern[:CONCERN_PREVIEW_LENGTH] + "..."
+            if len(s.concern) > CONCERN_PREVIEW_LENGTH
+            else s.concern
+        )
         created_date = s.created_at[:10] if s.created_at else "不明"
         has_ai = "AI鑑定あり" if s.ai_reading_text else "命式のみ"
 

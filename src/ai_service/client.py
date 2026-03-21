@@ -83,10 +83,13 @@ class OpenAIClient(LLMClient):
             except (openai.RateLimitError, openai.APITimeoutError) as e:
                 last_error = e
                 if attempt < API_MAX_RETRIES:
-                    wait = API_RETRY_BASE_WAIT * (2 ** attempt)
+                    wait = API_RETRY_BASE_WAIT * (2**attempt)
                     logger.warning(
                         "OpenAI 一時エラー (%s), %s秒後にリトライ (%d/%d)",
-                        type(e).__name__, wait, attempt + 1, API_MAX_RETRIES,
+                        type(e).__name__,
+                        wait,
+                        attempt + 1,
+                        API_MAX_RETRIES,
                     )
                     time.sleep(wait)
                     continue
@@ -136,10 +139,13 @@ class AnthropicClient(LLMClient):
             except (anthropic.RateLimitError, anthropic.APITimeoutError) as e:
                 last_error = e
                 if attempt < API_MAX_RETRIES:
-                    wait = API_RETRY_BASE_WAIT * (2 ** attempt)
+                    wait = API_RETRY_BASE_WAIT * (2**attempt)
                     logger.warning(
                         "Anthropic 一時エラー (%s), %s秒後にリトライ (%d/%d)",
-                        type(e).__name__, wait, attempt + 1, API_MAX_RETRIES,
+                        type(e).__name__,
+                        wait,
+                        attempt + 1,
+                        API_MAX_RETRIES,
                     )
                     time.sleep(wait)
                     continue

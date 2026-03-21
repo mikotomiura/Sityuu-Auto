@@ -5,7 +5,7 @@ AIプロンプトに埋め込む命式テキストと、UI表示用のフォー�
 """
 
 import unicodedata
-from typing import Any
+from typing import TypedDict
 
 from fortune_engine.constants import JUNIDAI_ENERGY
 from fortune_engine.models import (
@@ -13,6 +13,16 @@ from fortune_engine.models import (
     HumanStarChart,
     Pillar,
 )
+
+
+class DisplayData(TypedDict):
+    """UI表示用の命式データ辞書。"""
+
+    pillars: list[dict[str, str]]
+    human_star_chart: dict[str, str]
+    tenchusatsu: str
+    total_energy: int
+    five_elements_balance: dict[str, int]
 
 
 def format_for_ai_prompt(result: FortuneResult) -> str:
@@ -64,7 +74,7 @@ def format_for_ai_prompt(result: FortuneResult) -> str:
     return "\n".join(lines)
 
 
-def format_for_display(result: FortuneResult) -> dict[str, Any]:
+def format_for_display(result: FortuneResult) -> DisplayData:
     """FortuneResultをUI表示用の辞書データに変換する。
 
     Streamlitのst.table()等で直接使えるデータ構造を返す。
@@ -73,7 +83,7 @@ def format_for_display(result: FortuneResult) -> dict[str, Any]:
         result: 命式算出の最終結果。
 
     Returns:
-        以下のキーを持つ辞書:
+        以下のキーを持つ DisplayData:
             - pillars: 四柱の一覧（list[dict]）。各要素は柱名・干支・天干・地支・五行・陰陽を含む。
             - human_star_chart: 人体星図の辞書（位置→星名）。
             - tenchusatsu: 天中殺グループ名。

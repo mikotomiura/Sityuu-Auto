@@ -6,6 +6,7 @@ from datetime import date, time
 import streamlit as st
 
 from config import SESSION_KEY_FORM_VERSION
+from utils.validators import validate_client_name, validate_concern
 
 
 @dataclass
@@ -51,6 +52,8 @@ def _inject_autocomplete_off() -> None:
         observer.observe(document.body, {childList: true, subtree: true});
         </script>
         """,
+        # SECURITY: 注入するHTMLはハードコードされた固定スクリプトのみ。
+        # 外部入力は含まれないためXSSリスクなし。変更時は要レビュー。
         unsafe_allow_html=True,
     )
 
@@ -127,13 +130,15 @@ def render_client_input_form() -> ClientInputData | None:
     if not submitted:
         return None
 
-    # バリデーション
-    if len(name.strip()) < 1:
-        st.warning("お名前を入力してください。")
+    # バリデーション（validators モジュールに委譲）
+    name_error = validate_client_name(name)
+    if name_error:
+        st.warning(name_error)
         return None
 
-    if len(concern.strip()) < 10:
-        st.warning("悩みは10文字以上入力してください。")
+    concern_error = validate_concern(concern)
+    if concern_error:
+        st.warning(concern_error)
         return None
 
     return ClientInputData(

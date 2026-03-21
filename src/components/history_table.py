@@ -2,6 +2,7 @@
 
 import streamlit as st
 
+from config import CONCERN_PREVIEW_LENGTH
 from db_service.repositories.session_repo import SessionWithClientName
 
 
@@ -26,7 +27,11 @@ def render_history_table(
 
     for item in sessions:
         s = item.session
-        concern_preview = s.concern[:40] + "..." if len(s.concern) > 40 else s.concern
+        concern_preview = (
+            s.concern[:CONCERN_PREVIEW_LENGTH] + "..."
+            if len(s.concern) > CONCERN_PREVIEW_LENGTH
+            else s.concern
+        )
         created_date = s.created_at[:10] if s.created_at else "不明"
         has_ai = "AI鑑定あり" if s.ai_reading_text else "命式のみ"
 

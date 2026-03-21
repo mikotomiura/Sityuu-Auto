@@ -30,9 +30,7 @@ class TestJudaiTable:
         for day in STEMS:
             assert day in JUDAI_TABLE, f"日干 '{day}' が JUDAI_TABLE に存在しない"
             for target in STEMS:
-                assert target in JUDAI_TABLE[day], (
-                    f"JUDAI_TABLE['{day}']['{target}'] が存在しない"
-                )
+                assert target in JUDAI_TABLE[day], f"JUDAI_TABLE['{day}']['{target}'] が存在しない"
 
     def test_judai_table_values_are_valid_judai_names(self) -> None:
         """JUDAI_TABLE の全値が十大主星の有効な名前であること。"""
@@ -41,8 +39,7 @@ class TestJudaiTable:
             for target in STEMS:
                 value = JUDAI_TABLE[day][target]
                 assert value in valid_names, (
-                    f"JUDAI_TABLE['{day}']['{target}'] = '{value}' は"
-                    f"有効な十大主星名ではない"
+                    f"JUDAI_TABLE['{day}']['{target}'] = '{value}' は有効な十大主星名ではない"
                 )
 
 
@@ -52,9 +49,7 @@ class TestTwelvePhasesTable:
     def test_twelve_phases_table_has_all_120_combinations(self) -> None:
         """十二運テーブルが10干×12支=120組すべてを網羅していること。"""
         for stem in STEMS:
-            assert stem in TWELVE_PHASES_TABLE, (
-                f"日干 '{stem}' が TWELVE_PHASES_TABLE に存在しない"
-            )
+            assert stem in TWELVE_PHASES_TABLE, f"日干 '{stem}' が TWELVE_PHASES_TABLE に存在しない"
             for branch in BRANCHES:
                 assert branch in TWELVE_PHASES_TABLE[stem], (
                     f"TWELVE_PHASES_TABLE['{stem}']['{branch}'] が存在しない"
@@ -78,16 +73,12 @@ class TestStemMappings:
     def test_stem_to_element_covers_all_stems(self) -> None:
         """STEM_TO_ELEMENT が十干10種すべてをカバーしていること。"""
         for stem in STEMS:
-            assert stem in STEM_TO_ELEMENT, (
-                f"十干 '{stem}' が STEM_TO_ELEMENT に存在しない"
-            )
+            assert stem in STEM_TO_ELEMENT, f"十干 '{stem}' が STEM_TO_ELEMENT に存在しない"
 
     def test_stem_to_yinyang_covers_all_stems(self) -> None:
         """STEM_TO_YINYANG が十干10種すべてをカバーしていること。"""
         for stem in STEMS:
-            assert stem in STEM_TO_YINYANG, (
-                f"十干 '{stem}' が STEM_TO_YINYANG に存在しない"
-            )
+            assert stem in STEM_TO_YINYANG, f"十干 '{stem}' が STEM_TO_YINYANG に存在しない"
 
 
 class TestBranchMappings:
@@ -103,17 +94,13 @@ class TestBranchMappings:
     def test_zoukan_honki_covers_all_branches(self) -> None:
         """ZOUKAN_HONKI が十二支12種すべてをカバーしていること。"""
         for branch in BRANCHES:
-            assert branch in ZOUKAN_HONKI, (
-                f"十二支 '{branch}' が ZOUKAN_HONKI に存在しない"
-            )
+            assert branch in ZOUKAN_HONKI, f"十二支 '{branch}' が ZOUKAN_HONKI に存在しない"
 
     def test_zoukan_honki_values_are_valid_stems(self) -> None:
         """ZOUKAN_HONKI の全値が有効な十干であること。"""
         for branch in BRANCHES:
             value = ZOUKAN_HONKI[branch]
-            assert value in STEMS, (
-                f"ZOUKAN_HONKI['{branch}'] = '{value}' は有効な十干ではない"
-            )
+            assert value in STEMS, f"ZOUKAN_HONKI['{branch}'] = '{value}' は有効な十干ではない"
 
 
 class TestTenchusatsu:
@@ -135,8 +122,7 @@ class TestKangoPair:
         """干合テーブルが対称であること（AのペアがBなら、BのペアがA）。"""
         for stem_a, stem_b in KANGO_PAIR.items():
             assert stem_b in KANGO_PAIR, (
-                f"KANGO_PAIR['{stem_a}'] = '{stem_b}' だが"
-                f"'{stem_b}' が KANGO_PAIR に存在しない"
+                f"KANGO_PAIR['{stem_a}'] = '{stem_b}' だが'{stem_b}' が KANGO_PAIR に存在しない"
             )
             assert KANGO_PAIR[stem_b] == stem_a, (
                 f"KANGO_PAIR['{stem_a}'] = '{stem_b}' だが"
@@ -146,9 +132,7 @@ class TestKangoPair:
     def test_kango_pair_covers_all_stems(self) -> None:
         """干合テーブルが十干10種すべてをカバーしていること。"""
         for stem in STEMS:
-            assert stem in KANGO_PAIR, (
-                f"十干 '{stem}' が KANGO_PAIR に存在しない"
-            )
+            assert stem in KANGO_PAIR, f"十干 '{stem}' が KANGO_PAIR に存在しない"
 
 
 class TestJuniDaiEnergy:
@@ -157,17 +141,13 @@ class TestJuniDaiEnergy:
     def test_junidai_energy_values_are_in_range(self) -> None:
         """エネルギー値が1〜12の範囲内であること。"""
         for star, energy in JUNIDAI_ENERGY.items():
-            assert 1 <= energy <= 12, (
-                f"JUNIDAI_ENERGY[{star.value}] = {energy} は範囲外（1〜12）"
-            )
+            assert 1 <= energy <= 12, f"JUNIDAI_ENERGY[{star.value}] = {energy} は範囲外（1〜12）"
 
     def test_junidai_energy_covers_all_stars(self) -> None:
         """JUNIDAI_ENERGY が十二大従星12種すべてをカバーしていること。"""
         all_stars = {star for star in JuniDaiJusei}
         mapped_stars = set(JUNIDAI_ENERGY.keys())
-        assert all_stars == mapped_stars, (
-            f"未カバーの十二大従星: {all_stars - mapped_stars}"
-        )
+        assert all_stars == mapped_stars, f"未カバーの十二大従星: {all_stars - mapped_stars}"
 
     def test_junidai_energy_values_are_unique(self) -> None:
         """エネルギー値が全て一意であること（1〜12の各値が1回ずつ）。"""

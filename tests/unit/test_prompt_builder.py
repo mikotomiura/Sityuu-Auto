@@ -70,7 +70,6 @@ class TestBuildReadingPrompt:
         assert "命式から読み取れる強みと課題" in user
         assert "具体的なアドバイス" in user
 
-
     def test_custom_system_prompt_overrides_default(self) -> None:
         """custom_system_prompt が指定された場合にデフォルトが上書きされること。"""
         custom = "あなたはカスタム鑑定師です。"

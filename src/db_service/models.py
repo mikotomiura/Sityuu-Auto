@@ -75,7 +75,7 @@ class PromptTemplateRecord:
         name: テンプレート名（ユニーク）。
         system_prompt: システムプロンプト本文。
         description: テンプレートの説明。
-        is_default: デフォルトテンプレートかどうか（1=デフォルト）。
+        is_default: デフォルトテンプレートかどうか。
         created_at: 作成日時（ISO 8601 形式）。
         updated_at: 更新日時（ISO 8601 形式）。
     """
@@ -84,6 +84,6 @@ class PromptTemplateRecord:
     name: str
     system_prompt: str
     description: str | None
-    is_default: int
+    is_default: bool
     created_at: str
     updated_at: str

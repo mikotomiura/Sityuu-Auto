@@ -10,7 +10,6 @@ from pydantic import ValidationError
 from components.history_table import render_history_table
 from components.pdf_export import build_fallback_pdf
 from components.reading_result import render_reading_result
-from utils.exceptions import PDFExportError
 from config import (
     SESSION_KEY_HISTORY_SEARCH_QUERY,
     SESSION_KEY_HISTORY_SELECTED_SESSION,
@@ -19,7 +18,7 @@ from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from fortune_engine.models import FortuneResult, NatalChart, SanmeiData
-from utils.exceptions import DatabaseError
+from utils.exceptions import DatabaseError, PDFExportError
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +49,12 @@ def _render_list_view(session_repo: SessionRepository) -> None:
     )
     st.session_state[SESSION_KEY_HISTORY_SEARCH_QUERY] = search_query
 
-    # --- データ取得 ---
+    # --- データ取得（ページネーション付き） ---
     try:
         if search_query.strip():
-            sessions = session_repo.search_by_client_name(search_query.strip())
+            sessions = session_repo.search_by_client_name(search_query.strip(), limit=50)
         else:
-            sessions = session_repo.find_all_with_client_name()
+            sessions = session_repo.find_all_with_client_name(limit=50)
     except DatabaseError as e:
         logger.error("履歴の取得に失敗: %s", e)
         st.error("履歴の取得に失敗しました。")

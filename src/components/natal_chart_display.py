@@ -31,6 +31,7 @@ def render_natal_chart(result: FortuneResult) -> None:
     # --- 日干メトリクス ---
     day_element = nc.day_stem_element.value
     color = _ELEMENT_COLORS.get(day_element, "#333")
+    # SECURITY: 埋め込み値は命式計算結果（Enum値）のみ。外部入力なし。変更時は要レビュー。
     st.markdown(
         f"### 日干: <span style='color:{color}; font-size:1.5em;'>"
         f"{nc.day_stem}（{day_element}）</span>",
@@ -46,8 +47,10 @@ def render_natal_chart(result: FortuneResult) -> None:
     st.markdown("#### 五行バランス")
     balance = display_data["five_elements_balance"]
     cols = st.columns(len(balance))
-    for col, (element, count) in zip(cols, balance.items()):
+    for col, (element, count) in zip(cols, balance.items(), strict=True):
         color = _ELEMENT_COLORS.get(element, "#333")
+        # SECURITY: 埋め込み値は _ELEMENT_COLORS 辞書と五行バランス（int）のみ。
+        # 外部入力は含まれないためXSSリスクなし。変更時は要レビュー。
         col.markdown(
             f"<div style='text-align:center;'>"
             f"<span style='color:{color}; font-size:2em; font-weight:bold;'>{count}</span>"

@@ -13,7 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 def _row_to_session_record(row: sqlite3.Row) -> SessionRecord:
-    """sqlite3.Row を SessionRecord に変換する。"""
+    """sqlite3.Row を SessionRecord に変換する。
+
+    Args:
+        row: SQLiteの行データ。
+
+    Returns:
+        変換された SessionRecord。
+    """
     return SessionRecord(
         id=row["id"],
         client_id=row["client_id"],
@@ -175,7 +182,8 @@ class SessionRepository:
         """
         try:
             cursor = self._conn.execute(
-                "SELECT * FROM sessions WHERE client_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                "SELECT * FROM sessions WHERE client_id = ?"
+                " ORDER BY created_at DESC LIMIT ? OFFSET ?",
                 (client_id, limit, offset),
             )
             return [_row_to_session_record(row) for row in cursor.fetchall()]

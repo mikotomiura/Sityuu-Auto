@@ -193,7 +193,9 @@ def main() -> None:
         with col_info:
             st.info(f"鑑定結果を表示中: **{prev_name}** さん")
         with col_btn:
-            if st.button("新規鑑定を開始", key="new_reading_top", type="primary", use_container_width=True):
+            if st.button(
+                "新規鑑定を開始", key="new_reading_top", type="primary", use_container_width=True
+            ):
                 _clear_reading_state()
                 st.rerun()
     else:
@@ -222,8 +224,8 @@ def main() -> None:
                     st.session_state[SESSION_KEY_LISTENING_HINTS] = None
                 # 結果表示モードに切り替え（フォームを非表示にする）
                 st.rerun()
-            except FortuneCalculationError as e:
-                st.error(f"命式の算出に失敗しました: {e}")
+            except FortuneCalculationError:
+                st.error("命式の算出に失敗しました。入力値を確認してください。")
                 return
 
     # --- 算出済み結果の取得 ---

@@ -76,9 +76,7 @@ def _render_api_settings() -> None:
     # プロバイダー変更時にモデルをデフォルトにリセット
     if selected_provider != current_provider:
         st.session_state[SESSION_KEY_API_PROVIDER] = selected_provider
-        st.session_state[SESSION_KEY_API_MODEL] = PROVIDER_DEFAULT_MODELS.get(
-            selected_provider, ""
-        )
+        st.session_state[SESSION_KEY_API_MODEL] = PROVIDER_DEFAULT_MODELS.get(selected_provider, "")
         st.rerun()
 
     # --- APIキーステータス ---
@@ -173,18 +171,17 @@ def _render_template_list(repo: PromptTemplateRepository) -> None:
                         st.session_state[SESSION_KEY_TEMPLATE_EDIT_ID] = tmpl.id
                         st.rerun()
                 with col2:
-                    if not tmpl.is_default:
-                        if st.button(
-                            "デフォルトに設定",
-                            key=f"default_{tmpl.id}",
-                            use_container_width=True,
-                        ):
-                            try:
-                                repo.set_default(tmpl.id)
-                                st.success(f"「{tmpl.name}」をデフォルトに設定しました。")
-                                st.rerun()
-                            except DatabaseError as e:
-                                st.error(str(e))
+                    if not tmpl.is_default and st.button(
+                        "デフォルトに設定",
+                        key=f"default_{tmpl.id}",
+                        use_container_width=True,
+                    ):
+                        try:
+                            repo.set_default(tmpl.id)
+                            st.success(f"「{tmpl.name}」をデフォルトに設定しました。")
+                            st.rerun()
+                        except DatabaseError:
+                            st.error("操作に失敗しました。")
                 with col3:
                     if tmpl.is_default:
                         st.button(

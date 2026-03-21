@@ -128,7 +128,4 @@ class TestMultipleDatesProduceDifferentResults:
         result_b = calculate_fortune(birth_date=date(2000, 1, 1))
 
         # 日柱の干支が異なること（同じ日付でない限り異なる）
-        assert (
-            result_a.natal_chart.day_pillar.ganshi
-            != result_b.natal_chart.day_pillar.ganshi
-        )
+        assert result_a.natal_chart.day_pillar.ganshi != result_b.natal_chart.day_pillar.ganshi

@@ -5,7 +5,7 @@
 成功時は None を返す。
 """
 
-from datetime import date, time
+from datetime import date
 
 # --- 定数 ---
 CLIENT_NAME_MIN_LENGTH = 1
@@ -45,21 +45,6 @@ def validate_birth_date(birth_date: date) -> str | None:
         return f"生年月日は{BIRTH_DATE_MIN.isoformat()}以降を指定してください。"
     if birth_date > date.today():
         return "未来の日付は指定できません。"
-    return None
-
-
-def validate_birth_time(birth_time: time | None) -> str | None:
-    """出生時間を検証する。
-
-    Args:
-        birth_time: 出生時間。不明の場合は None。
-
-    Returns:
-        検証エラー時はエラーメッセージ。成功時は None。
-    """
-    if birth_time is None:
-        return None
-    # time 型は 00:00〜23:59 の範囲を保証するため、追加検証は不要
     return None
 
 

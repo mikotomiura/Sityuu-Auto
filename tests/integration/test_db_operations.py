@@ -6,40 +6,14 @@
 from __future__ import annotations
 
 import json
-import sqlite3
-from collections.abc import Generator
 from datetime import date
 
 import pytest
 
-from db_service.database import initialize_database
 from db_service.models import ClientRecord, SessionRecord
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from utils.exceptions import DatabaseError
-
-
-@pytest.fixture()
-def db_conn() -> Generator[sqlite3.Connection, None, None]:
-    """インメモリSQLiteコネクションを作成し、マイグレーションを実行する。"""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
-    initialize_database(conn)
-    yield conn
-    conn.close()
-
-
-@pytest.fixture()
-def client_repo(db_conn: sqlite3.Connection) -> ClientRepository:
-    """ClientRepository フィクスチャ。"""
-    return ClientRepository(db_conn)
-
-
-@pytest.fixture()
-def session_repo(db_conn: sqlite3.Connection) -> SessionRepository:
-    """SessionRepository フィクスチャ。"""
-    return SessionRepository(db_conn)
 
 
 @pytest.fixture()
@@ -119,9 +93,7 @@ class TestClientRepositoryFindById:
         assert record.id == saved_client_id
         assert record.name == "山田太郎"
 
-    def test_find_by_id_returns_none_for_unknown_id(
-        self, client_repo: ClientRepository
-    ) -> None:
+    def test_find_by_id_returns_none_for_unknown_id(self, client_repo: ClientRepository) -> None:
         """存在しないIDで None が返ること。"""
         result = client_repo.find_by_id("nonexistent-uuid")
         assert result is None
@@ -182,9 +154,7 @@ class TestClientRepositorySearchByName:
 class TestClientRepositoryUpdate:
     """ClientRepository.update のテスト。"""
 
-    def test_update_name(
-        self, client_repo: ClientRepository, saved_client_id: str
-    ) -> None:
+    def test_update_name(self, client_repo: ClientRepository, saved_client_id: str) -> None:
         """名前の更新が反映されること。"""
         result = client_repo.update(saved_client_id, name="山田次郎")
         assert result is True
@@ -193,9 +163,7 @@ class TestClientRepositoryUpdate:
         assert record is not None
         assert record.name == "山田次郎"
 
-    def test_update_notes(
-        self, client_repo: ClientRepository, saved_client_id: str
-    ) -> None:
+    def test_update_notes(self, client_repo: ClientRepository, saved_client_id: str) -> None:
         """メモの更新が反映されること。"""
         result = client_repo.update(saved_client_id, notes="新しいメモ")
         assert result is True
@@ -224,9 +192,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id)
         assert result is False
 
-    def test_update_returns_false_for_unknown_id(
-        self, client_repo: ClientRepository
-    ) -> None:
+    def test_update_returns_false_for_unknown_id(self, client_repo: ClientRepository) -> None:
         """存在しないIDで False が返ること。"""
         result = client_repo.update("nonexistent-uuid", name="テスト")
         assert result is False
@@ -316,9 +282,7 @@ class TestSessionRepositoryFindById:
         assert isinstance(record, SessionRecord)
         assert record.id == session_id
 
-    def test_find_by_id_returns_none_for_unknown_id(
-        self, session_repo: SessionRepository
-    ) -> None:
+    def test_find_by_id_returns_none_for_unknown_id(self, session_repo: SessionRepository) -> None:
         """存在しないIDで None が返ること。"""
         assert session_repo.find_by_id("nonexistent-uuid") is None
 
@@ -373,9 +337,7 @@ class TestSessionRepositoryFindByClientId:
 class TestSessionRepositoryFindAll:
     """SessionRepository.find_all のテスト。"""
 
-    def test_find_all_returns_empty_list(
-        self, session_repo: SessionRepository
-    ) -> None:
+    def test_find_all_returns_empty_list(self, session_repo: SessionRepository) -> None:
         """データなしで空リストが返ること。"""
         assert session_repo.find_all() == []
 

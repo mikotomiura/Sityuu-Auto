@@ -20,9 +20,7 @@ class TestCreateClient:
 
     def test_create_openai_client(self) -> None:
         """provider="openai" で OpenAIClient が生成されること。"""
-        client = create_client(
-            provider="openai", api_key="sk-test", model="gpt-4o"
-        )
+        client = create_client(provider="openai", api_key="sk-test", model="gpt-4o")
 
         assert isinstance(client, OpenAIClient)
         assert isinstance(client, LLMClient)

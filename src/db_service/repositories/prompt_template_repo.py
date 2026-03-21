@@ -12,13 +12,20 @@ logger = logging.getLogger(__name__)
 
 
 def _row_to_template_record(row: sqlite3.Row) -> PromptTemplateRecord:
-    """sqlite3.Row を PromptTemplateRecord に変換する。"""
+    """sqlite3.Row を PromptTemplateRecord に変換する。
+
+    Args:
+        row: SQLiteの行データ。
+
+    Returns:
+        変換された PromptTemplateRecord。
+    """
     return PromptTemplateRecord(
         id=row["id"],
         name=row["name"],
         system_prompt=row["system_prompt"],
         description=row["description"],
-        is_default=row["is_default"],
+        is_default=bool(row["is_default"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -278,6 +285,4 @@ class PromptTemplateRepository:
 
     def _clear_default(self) -> None:
         """全テンプレートのデフォルトフラグを解除する。"""
-        self._conn.execute(
-            "UPDATE prompt_templates SET is_default = 0 WHERE is_default = 1"
-        )
+        self._conn.execute("UPDATE prompt_templates SET is_default = 0 WHERE is_default = 1")

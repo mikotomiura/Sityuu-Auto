@@ -19,8 +19,13 @@ class TestPrivacyFilter:
     def test_mask_birth_date_hyphen(self, privacy_filter: PrivacyFilter) -> None:
         """ハイフン区切りの生年月日がマスキングされること。"""
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="生年月日: 1990-05-15 のデータ", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="生年月日: 1990-05-15 のデータ",
+            args=(),
+            exc_info=None,
         )
         privacy_filter.filter(record)
         assert "1990-05-15" not in record.msg
@@ -29,8 +34,13 @@ class TestPrivacyFilter:
     def test_mask_birth_date_slash(self, privacy_filter: PrivacyFilter) -> None:
         """スラッシュ区切りの生年月日がマスキングされること。"""
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="生年月日: 1990/05/15 のデータ", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="生年月日: 1990/05/15 のデータ",
+            args=(),
+            exc_info=None,
         )
         privacy_filter.filter(record)
         assert "1990/05/15" not in record.msg
@@ -39,8 +49,13 @@ class TestPrivacyFilter:
     def test_mask_email(self, privacy_filter: PrivacyFilter) -> None:
         """メールアドレスがマスキングされること。"""
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="連絡先: user@example.com に送信", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="連絡先: user@example.com に送信",
+            args=(),
+            exc_info=None,
         )
         privacy_filter.filter(record)
         assert "user@example.com" not in record.msg
@@ -50,8 +65,13 @@ class TestPrivacyFilter:
         """個人情報を含まないメッセージは変更されないこと。"""
         original_msg = "命式算出を開始: client_id=abc-123"
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg=original_msg, args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=original_msg,
+            args=(),
+            exc_info=None,
         )
         privacy_filter.filter(record)
         assert record.msg == original_msg
@@ -59,8 +79,13 @@ class TestPrivacyFilter:
     def test_mask_date_in_args(self, privacy_filter: PrivacyFilter) -> None:
         """record.args に渡された生年月日がマスキングされること。"""
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="生年月日: %s", args=("1990-05-15",), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="生年月日: %s",
+            args=("1990-05-15",),
+            exc_info=None,
         )
         privacy_filter.filter(record)
         assert "1990-05-15" not in record.msg
@@ -70,18 +95,20 @@ class TestPrivacyFilter:
     def test_filter_always_returns_true(self, privacy_filter: PrivacyFilter) -> None:
         """filter は常に True を返すこと（レコードを破棄しない）。"""
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="テスト", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="テスト",
+            args=(),
+            exc_info=None,
         )
         assert privacy_filter.filter(record) is True
 
 
 def _get_app_handlers(root: logging.Logger) -> list[logging.Handler]:
     """pytest の LogCaptureHandler を除いたハンドラ一覧を返す。"""
-    return [
-        h for h in root.handlers
-        if type(h).__name__ != "LogCaptureHandler"
-    ]
+    return [h for h in root.handlers if type(h).__name__ != "LogCaptureHandler"]
 
 
 class TestSetupLogging:

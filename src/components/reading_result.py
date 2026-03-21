@@ -8,14 +8,15 @@ import streamlit as st
 
 from components.natal_chart_display import render_natal_chart
 from components.pdf_export import build_reading_report_pdf
-from utils.exceptions import PDFExportError
-from utils.text_utils import strip_mentor_section
 from fortune_engine.formatter import (
+    DisplayData,
     format_for_ai_prompt,
     format_for_display,
     format_human_star_chart_grid,
 )
 from fortune_engine.models import FortuneResult, SanmeiData
+from utils.exceptions import PDFExportError
+from utils.text_utils import strip_mentor_section
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +127,14 @@ def render_reading_result(
 
 def _render_human_star_chart(
     sd: SanmeiData,
-    display_data: dict[str, object],
+    display_data: DisplayData,
 ) -> None:
-    """人体星図セクションを表示する。"""
+    """人体星図セクションを表示する。
+
+    Args:
+        sd: 算命学データ。
+        display_data: UI表示用の命式データ辞書。
+    """
     col_grid, col_info = st.columns([3, 2])
 
     with col_grid:
@@ -150,13 +156,21 @@ def _render_human_star_chart(
 
 
 def _render_ai_reading(ai_text: str) -> None:
-    """AI鑑定レポートを構造化表示する。"""
+    """AI鑑定レポートを構造化表示する。
+
+    Args:
+        ai_text: AI生成の鑑定テキスト。
+    """
     st.subheader("AI鑑定レポート")
     st.markdown(ai_text)
 
 
 def _render_listening_hints(hints_text: str) -> None:
-    """傾聴ヒントを表示する。"""
+    """傾聴ヒントを表示する。
+
+    Args:
+        hints_text: 傾聴ヒントテキスト。
+    """
     st.subheader("傾聴のヒント（メンター向け）")
     st.info("以下はメンタリングセッションで活用するための傾聴ガイドです。")
     st.markdown(hints_text)

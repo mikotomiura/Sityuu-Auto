@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 def _row_to_client_record(row: sqlite3.Row) -> ClientRecord:
-    """sqlite3.Row を ClientRecord に変換する。"""
+    """sqlite3.Row を ClientRecord に変換する。
+
+    Args:
+        row: SQLiteの行データ。
+
+    Returns:
+        変換された ClientRecord。
+    """
     return ClientRecord(
         id=row["id"],
         name=row["name"],
@@ -63,10 +70,22 @@ class ClientRepository:
         try:
             self._conn.execute(
                 """
-                INSERT INTO clients (id, name, name_kana, birth_date, birth_time, gender, notes, created_at, updated_at)
+                INSERT INTO clients
+                    (id, name, name_kana, birth_date, birth_time,
+                     gender, notes, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (client_id, name, name_kana, birth_date.isoformat(), birth_time, gender, notes, now, now),
+                (
+                    client_id,
+                    name,
+                    name_kana,
+                    birth_date.isoformat(),
+                    birth_time,
+                    gender,
+                    notes,
+                    now,
+                    now,
+                ),
             )
             self._conn.commit()
         except sqlite3.Error as e:
@@ -125,6 +144,24 @@ class ClientRepository:
         except sqlite3.Error as e:
             logger.error("相談者一覧の取得に失敗: %s", e)
             raise DatabaseError("相談者一覧の取得に失敗しました") from e
+
+    def count_sessions_by_client(self) -> dict[str, int]:
+        """全相談者のセッション数を一括取得する。
+
+        Returns:
+            相談者IDをキー、セッション件数を値とする辞書。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT client_id, COUNT(*) as cnt FROM sessions GROUP BY client_id"
+            )
+            return {row["client_id"]: row["cnt"] for row in cursor.fetchall()}
+        except sqlite3.Error as e:
+            logger.error("セッション数の取得に失敗: %s", e)
+            raise DatabaseError("セッション数の取得に失敗しました") from e
 
     def search_by_name(self, query: str) -> list[ClientRecord]:
         """名前で相談者を検索する。

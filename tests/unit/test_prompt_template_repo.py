@@ -63,9 +63,7 @@ class TestSave:
         with pytest.raises(DatabaseError, match="既に使用されています"):
             repo.save(name="重複テスト", system_prompt="2")
 
-    def test_save_default_clears_previous_default(
-        self, repo: PromptTemplateRepository
-    ) -> None:
+    def test_save_default_clears_previous_default(self, repo: PromptTemplateRepository) -> None:
         """新しいデフォルト設定時に既存のデフォルトが解除されること。"""
         id1 = repo.save(name="テンプレ1", system_prompt="1", is_default=True)
         id2 = repo.save(name="テンプレ2", system_prompt="2", is_default=True)
@@ -83,9 +81,7 @@ class TestFindAll:
         """テンプレートなしの場合は空リストが返ること。"""
         assert repo.find_all() == []
 
-    def test_returns_all_templates_default_first(
-        self, repo: PromptTemplateRepository
-    ) -> None:
+    def test_returns_all_templates_default_first(self, repo: PromptTemplateRepository) -> None:
         """全テンプレートがデフォルト優先で返ること。"""
         repo.save(name="B通常", system_prompt="b")
         repo.save(name="Aデフォルト", system_prompt="a", is_default=True)
