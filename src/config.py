@@ -28,6 +28,7 @@ SESSION_KEY_CLIENTS_SEARCH_QUERY = "clients_search_query"
 # --- テンプレート管理用 ---
 SESSION_KEY_SELECTED_TEMPLATE = "selected_template_id"
 SESSION_KEY_TEMPLATE_EDIT_ID = "template_edit_id"
+SESSION_KEY_FORM_VERSION = "form_version"
 
 # --- アプリケーション設定 ---
 APP_TITLE = "Sityuu-Auto-占い・メンタリング支援システム-"
@@ -37,9 +38,11 @@ DB_PATH = Path(__file__).resolve().parent.parent / "data" / "fortune.sqlite3"
 # --- API設定 ---
 DEFAULT_API_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-2.5-flash"
-API_TIMEOUT_SECONDS = 30
-API_MAX_TOKENS = 2000
+API_TIMEOUT_SECONDS = 60
+API_MAX_TOKENS = 8192  # 鑑定レポート（5セクション・日本語）の完全出力に必要
 API_TEMPERATURE = 0.7
+API_MAX_RETRIES = 2
+API_RETRY_BASE_WAIT = 1.0
 
 # --- プロバイダー別デフォルトモデル ---
 PROVIDER_DEFAULT_MODELS: dict[str, str] = {

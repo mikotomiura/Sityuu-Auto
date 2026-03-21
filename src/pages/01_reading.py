@@ -26,6 +26,7 @@ from config import (
     SESSION_KEY_CLIENT_NAME,
     SESSION_KEY_CLIENT_NAME_KANA,
     SESSION_KEY_CONCERN,
+    SESSION_KEY_FORM_VERSION,
     SESSION_KEY_FORTUNE_RESULT,
     SESSION_KEY_LISTENING_HINTS,
     SESSION_KEY_SELECTED_TEMPLATE,
@@ -48,21 +49,40 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+# クリア対象の鑑定セッションキー（SESSION_KEY_FORM_VERSION は含まない: インクリメントで管理）
+_READING_STATE_KEYS = (
+    SESSION_KEY_FORTUNE_RESULT,
+    SESSION_KEY_AI_RESPONSE,
+    SESSION_KEY_LISTENING_HINTS,
+    SESSION_KEY_CONCERN,
+    SESSION_KEY_CLIENT_NAME,
+    SESSION_KEY_CLIENT_NAME_KANA,
+    SESSION_KEY_CLIENT_BIRTH_DATE,
+    SESSION_KEY_CLIENT_BIRTH_TIME,
+    SESSION_KEY_CLIENT_GENDER,
+)
+
+
 def _initialize_state() -> None:
     """session_state のキーが未初期化の場合にデフォルト値を設定する。"""
-    for key in (
-        SESSION_KEY_FORTUNE_RESULT,
-        SESSION_KEY_AI_RESPONSE,
-        SESSION_KEY_LISTENING_HINTS,
-        SESSION_KEY_CONCERN,
-        SESSION_KEY_CLIENT_NAME,
-        SESSION_KEY_CLIENT_NAME_KANA,
-        SESSION_KEY_CLIENT_BIRTH_DATE,
-        SESSION_KEY_CLIENT_BIRTH_TIME,
-        SESSION_KEY_CLIENT_GENDER,
-    ):
+    for key in _READING_STATE_KEYS:
         if key not in st.session_state:
             st.session_state[key] = None
+
+
+def _clear_reading_state() -> None:
+    """鑑定に関するセッション状態をすべてリセットする。
+
+    カスタムキーの値を None にリセットし、フォームバージョンを
+    インクリメントすることで Streamlit ウィジェットの内部状態も
+    強制的にリセットする。
+    """
+    for key in _READING_STATE_KEYS:
+        st.session_state[key] = None
+    # フォームバージョンをインクリメントしてウィジェットを再生成
+    st.session_state[SESSION_KEY_FORM_VERSION] = (
+        st.session_state.get(SESSION_KEY_FORM_VERSION, 0) + 1
+    )
 
 
 def _get_api_key(provider: str) -> str | None:
@@ -165,32 +185,46 @@ def main() -> None:
 
     st.title("鑑定")
 
-    # --- Step 1: 入力フォーム ---
-    client_data = render_client_input_form()
+    # --- 前回の鑑定結果が残っている場合: フォームを非表示にし結果のみ表示 ---
+    prev_result = st.session_state.get(SESSION_KEY_FORTUNE_RESULT)
+    if prev_result is not None:
+        prev_name = st.session_state.get(SESSION_KEY_CLIENT_NAME, "")
+        col_info, col_btn = st.columns([3, 1])
+        with col_info:
+            st.info(f"鑑定結果を表示中: **{prev_name}** さん")
+        with col_btn:
+            if st.button("新規鑑定を開始", key="new_reading_top", type="primary", use_container_width=True):
+                _clear_reading_state()
+                st.rerun()
+    else:
+        # --- Step 1: 入力フォーム（鑑定結果がない場合のみ表示） ---
+        client_data = render_client_input_form()
 
-    if client_data is not None:
-        # --- Step 2: 命式算出 ---
-        try:
-            with st.spinner("命式を算出中..."):
-                result = calculate_fortune(
-                    birth_date=client_data.birth_date,
-                    birth_time=client_data.birth_time,
-                )
-                st.session_state[SESSION_KEY_FORTUNE_RESULT] = result
-                st.session_state[SESSION_KEY_CONCERN] = client_data.concern
-                st.session_state[SESSION_KEY_CLIENT_NAME] = client_data.name
-                st.session_state[SESSION_KEY_CLIENT_NAME_KANA] = client_data.name_kana
-                st.session_state[SESSION_KEY_CLIENT_BIRTH_DATE] = client_data.birth_date
-                st.session_state[SESSION_KEY_CLIENT_BIRTH_TIME] = (
-                    client_data.birth_time.strftime("%H:%M") if client_data.birth_time else None
-                )
-                st.session_state[SESSION_KEY_CLIENT_GENDER] = client_data.gender
-                # 新しい鑑定ではAI結果をリセット
-                st.session_state[SESSION_KEY_AI_RESPONSE] = None
-                st.session_state[SESSION_KEY_LISTENING_HINTS] = None
-        except FortuneCalculationError as e:
-            st.error(f"命式の算出に失敗しました: {e}")
-            return
+        if client_data is not None:
+            # --- Step 2: 命式算出 ---
+            try:
+                with st.spinner("命式を算出中..."):
+                    result = calculate_fortune(
+                        birth_date=client_data.birth_date,
+                        birth_time=client_data.birth_time,
+                    )
+                    st.session_state[SESSION_KEY_FORTUNE_RESULT] = result
+                    st.session_state[SESSION_KEY_CONCERN] = client_data.concern
+                    st.session_state[SESSION_KEY_CLIENT_NAME] = client_data.name
+                    st.session_state[SESSION_KEY_CLIENT_NAME_KANA] = client_data.name_kana
+                    st.session_state[SESSION_KEY_CLIENT_BIRTH_DATE] = client_data.birth_date
+                    st.session_state[SESSION_KEY_CLIENT_BIRTH_TIME] = (
+                        client_data.birth_time.strftime("%H:%M") if client_data.birth_time else None
+                    )
+                    st.session_state[SESSION_KEY_CLIENT_GENDER] = client_data.gender
+                    # 新しい鑑定ではAI結果をリセット
+                    st.session_state[SESSION_KEY_AI_RESPONSE] = None
+                    st.session_state[SESSION_KEY_LISTENING_HINTS] = None
+                # 結果表示モードに切り替え（フォームを非表示にする）
+                st.rerun()
+            except FortuneCalculationError as e:
+                st.error(f"命式の算出に失敗しました: {e}")
+                return
 
     # --- 算出済み結果の取得 ---
     result: FortuneResult | None = st.session_state[SESSION_KEY_FORTUNE_RESULT]
@@ -313,10 +347,20 @@ def main() -> None:
             client_name=st.session_state.get(SESSION_KEY_CLIENT_NAME),
         )
 
-        # --- 保存ボタン ---
+        # --- 保存ボタン・新規鑑定ボタン ---
         st.markdown("---")
-        if st.button("鑑定結果を保存", use_container_width=True):
-            _save_session_to_db(result, ai_response, hints_response)
+        col_save, col_new = st.columns(2)
+        with col_save:
+            if st.button("鑑定結果を保存", use_container_width=True):
+                _save_session_to_db(result, ai_response, hints_response)
+        with col_new:
+            if st.button(
+                "新規鑑定を開始",
+                key="new_reading_bottom",
+                use_container_width=True,
+            ):
+                _clear_reading_state()
+                st.rerun()
 
 
 main()

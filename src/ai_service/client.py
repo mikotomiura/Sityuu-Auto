@@ -1,6 +1,7 @@
 """LLM API クライアント。Strategy パターンで OpenAI / Anthropic / Gemini を切替。"""
 
 import logging
+import time
 from abc import ABC, abstractmethod
 
 import anthropic
@@ -11,6 +12,13 @@ from google.genai import types as genai_types
 from google.genai.errors import APIError as GeminiAPIError
 from google.genai.errors import ClientError as GeminiClientError
 
+from config import (
+    API_MAX_RETRIES,
+    API_MAX_TOKENS,
+    API_RETRY_BASE_WAIT,
+    API_TEMPERATURE,
+    API_TIMEOUT_SECONDS,
+)
 from utils.exceptions import AIServiceConfigError, AIServiceError
 
 logger = logging.getLogger(__name__)
@@ -40,7 +48,7 @@ class LLMClient(ABC):
 class OpenAIClient(LLMClient):
     """OpenAI API クライアント。"""
 
-    def __init__(self, api_key: str, model: str, timeout: int = 30) -> None:
+    def __init__(self, api_key: str, model: str, timeout: int = API_TIMEOUT_SECONDS) -> None:
         if not api_key:
             raise AIServiceConfigError("OpenAI API キーが設定されていません")
         self._api_key = api_key
@@ -48,45 +56,55 @@ class OpenAIClient(LLMClient):
         self._timeout = timeout
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
-        """OpenAI API でテキスト生成。"""
+        """OpenAI API でテキスト生成（リトライ付き）。"""
         client = openai.OpenAI(api_key=self._api_key)
+        last_error: Exception | None = None
 
-        try:
-            response = client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                max_tokens=2000,
-                temperature=0.7,
-                timeout=self._timeout,
-            )
-            content = response.choices[0].message.content
-            if not content:
-                raise AIServiceError("AIからの応答が空でした")
-            return content
+        for attempt in range(API_MAX_RETRIES + 1):
+            try:
+                response = client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    max_tokens=API_MAX_TOKENS,
+                    temperature=API_TEMPERATURE,
+                    timeout=self._timeout,
+                )
+                content = response.choices[0].message.content
+                if not content:
+                    raise AIServiceError("AIからの応答が空でした")
+                return content
 
-        except openai.AuthenticationError as e:
-            logger.error("OpenAI 認証エラー")
-            raise AIServiceConfigError("APIキーが無効です。設定を確認してください。") from e
-        except openai.RateLimitError as e:
-            logger.warning("OpenAI レート制限")
-            raise AIServiceError("API呼び出し制限に達しました。しばらくお待ちください。") from e
-        except openai.APITimeoutError as e:
-            logger.warning("OpenAI タイムアウト")
-            raise AIServiceError("API応答がタイムアウトしました。") from e
-        except openai.APIError as e:
-            logger.error("OpenAI APIエラー: %s", type(e).__name__)
-            raise AIServiceError(
-                "API呼び出しに失敗しました。しばらくしてから再試行してください。"
-            ) from e
+            except openai.AuthenticationError as e:
+                logger.error("OpenAI 認証エラー")
+                raise AIServiceConfigError("APIキーが無効です。設定を確認してください。") from e
+            except (openai.RateLimitError, openai.APITimeoutError) as e:
+                last_error = e
+                if attempt < API_MAX_RETRIES:
+                    wait = API_RETRY_BASE_WAIT * (2 ** attempt)
+                    logger.warning(
+                        "OpenAI 一時エラー (%s), %s秒後にリトライ (%d/%d)",
+                        type(e).__name__, wait, attempt + 1, API_MAX_RETRIES,
+                    )
+                    time.sleep(wait)
+                    continue
+            except openai.APIError as e:
+                logger.error("OpenAI APIエラー: %s", type(e).__name__)
+                raise AIServiceError(
+                    "API呼び出しに失敗しました。しばらくしてから再試行してください。"
+                ) from e
+
+        raise AIServiceError(
+            "API呼び出しがリトライ後も失敗しました。しばらくしてから再試行してください。"
+        ) from last_error
 
 
 class AnthropicClient(LLMClient):
     """Anthropic API クライアント。"""
 
-    def __init__(self, api_key: str, model: str, timeout: int = 30) -> None:
+    def __init__(self, api_key: str, model: str, timeout: int = API_TIMEOUT_SECONDS) -> None:
         if not api_key:
             raise AIServiceConfigError("Anthropic API キーが設定されていません")
         self._api_key = api_key
@@ -94,36 +112,46 @@ class AnthropicClient(LLMClient):
         self._timeout = timeout
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
-        """Anthropic API でテキスト生成。"""
+        """Anthropic API でテキスト生成（リトライ付き）。"""
         client = anthropic.Anthropic(api_key=self._api_key)
+        last_error: Exception | None = None
 
-        try:
-            response = client.messages.create(
-                model=self._model,
-                max_tokens=2000,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
-                timeout=self._timeout,
-            )
-            content = response.content[0].text
-            if not content:
-                raise AIServiceError("AIからの応答が空でした")
-            return content
+        for attempt in range(API_MAX_RETRIES + 1):
+            try:
+                response = client.messages.create(
+                    model=self._model,
+                    max_tokens=API_MAX_TOKENS,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_prompt}],
+                    timeout=self._timeout,
+                )
+                content = response.content[0].text
+                if not content:
+                    raise AIServiceError("AIからの応答が空でした")
+                return content
 
-        except anthropic.AuthenticationError as e:
-            logger.error("Anthropic 認証エラー")
-            raise AIServiceConfigError("APIキーが無効です。設定を確認してください。") from e
-        except anthropic.RateLimitError as e:
-            logger.warning("Anthropic レート制限")
-            raise AIServiceError("API呼び出し制限に達しました。しばらくお待ちください。") from e
-        except anthropic.APITimeoutError as e:
-            logger.warning("Anthropic タイムアウト")
-            raise AIServiceError("API応答がタイムアウトしました。") from e
-        except anthropic.APIError as e:
-            logger.error("Anthropic APIエラー: %s", type(e).__name__)
-            raise AIServiceError(
-                "API呼び出しに失敗しました。しばらくしてから再試行してください。"
-            ) from e
+            except anthropic.AuthenticationError as e:
+                logger.error("Anthropic 認証エラー")
+                raise AIServiceConfigError("APIキーが無効です。設定を確認してください。") from e
+            except (anthropic.RateLimitError, anthropic.APITimeoutError) as e:
+                last_error = e
+                if attempt < API_MAX_RETRIES:
+                    wait = API_RETRY_BASE_WAIT * (2 ** attempt)
+                    logger.warning(
+                        "Anthropic 一時エラー (%s), %s秒後にリトライ (%d/%d)",
+                        type(e).__name__, wait, attempt + 1, API_MAX_RETRIES,
+                    )
+                    time.sleep(wait)
+                    continue
+            except anthropic.APIError as e:
+                logger.error("Anthropic APIエラー: %s", type(e).__name__)
+                raise AIServiceError(
+                    "API呼び出しに失敗しました。しばらくしてから再試行してください。"
+                ) from e
+
+        raise AIServiceError(
+            "API呼び出しがリトライ後も失敗しました。しばらくしてから再試行してください。"
+        ) from last_error
 
 
 class GeminiClient(LLMClient):
@@ -137,7 +165,7 @@ class GeminiClient(LLMClient):
         self,
         api_key: str,
         models: list[str],
-        timeout: int = 30,
+        timeout: int = API_TIMEOUT_SECONDS,
     ) -> None:
         """GeminiClient を初期化する。
 
@@ -175,8 +203,8 @@ class GeminiClient(LLMClient):
                     contents=user_prompt,
                     config=genai_types.GenerateContentConfig(
                         system_instruction=system_prompt,
-                        temperature=0.7,
-                        max_output_tokens=16384,
+                        temperature=API_TEMPERATURE,
+                        max_output_tokens=API_MAX_TOKENS,
                     ),
                 )
                 content = response.text
@@ -216,6 +244,8 @@ class GeminiClient(LLMClient):
                     model,
                     type(e).__name__,
                 )
+                wait = API_RETRY_BASE_WAIT * (2 ** self._models.index(model))
+                time.sleep(wait)
                 continue
 
         # すべてのモデルが失敗した場合
@@ -241,7 +271,7 @@ def create_client(
     provider: str,
     api_key: str,
     model: str,
-    timeout: int = 30,
+    timeout: int = API_TIMEOUT_SECONDS,
     fallback_models: list[str] | None = None,
 ) -> LLMClient:
     """プロバイダーに応じた LLMClient を生成する。

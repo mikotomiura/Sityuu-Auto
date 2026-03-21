@@ -5,6 +5,8 @@ from datetime import date, time
 
 import streamlit as st
 
+from config import SESSION_KEY_FORM_VERSION
+
 
 @dataclass
 class ClientInputData:
@@ -27,14 +29,47 @@ class ClientInputData:
     concern: str
 
 
+def _inject_autocomplete_off() -> None:
+    """フォーム内の入力欄でブラウザの autocomplete を無効化する。
+
+    相談者の名前等はプライバシー情報であるため、ブラウザの入力候補に
+    残らないよう autocomplete 属性を off に設定する。
+    """
+    st.markdown(
+        """
+        <script>
+        const disableAutocomplete = () => {
+            document.querySelectorAll(
+                'input[type="text"], textarea'
+            ).forEach(el => {
+                el.setAttribute('autocomplete', 'off');
+            });
+        };
+        // 初回実行 + DOM変更時にも再適用
+        disableAutocomplete();
+        const observer = new MutationObserver(disableAutocomplete);
+        observer.observe(document.body, {childList: true, subtree: true});
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_client_input_form() -> ClientInputData | None:
     """相談者情報の入力フォームを表示し、送信された場合にデータを返す。
+
+    Note:
+        プライバシー保護のため、内部で JavaScript を注入してブラウザの
+        autocomplete を無効化する。
 
     Returns:
         フォーム送信時: ClientInputData。
         未送信時: None。
     """
-    with st.form("client_input_form"):
+    _inject_autocomplete_off()
+
+    form_version = st.session_state.get(SESSION_KEY_FORM_VERSION, 0)
+    with st.form(f"client_input_form_{form_version}"):
         st.subheader("相談者情報")
 
         # --- 基本情報 ---
