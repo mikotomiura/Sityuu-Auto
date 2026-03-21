@@ -11,7 +11,7 @@ from datetime import date
 import pytest
 
 from db_service.models import ClientRecord, SessionRecord
-from db_service.repositories.client_repo import ClientRepository
+from db_service.repositories.client_repo import UNSET, ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from utils.exceptions import DatabaseError
 
@@ -217,6 +217,81 @@ class TestClientRepositoryUpdate:
         """存在しないIDで False が返ること。"""
         result = client_repo.update("nonexistent-uuid", name="テスト")
         assert result is False
+
+    def test_update_birth_date(self, client_repo: ClientRepository, saved_client_id: str) -> None:
+        """生年月日の更新が反映されること。"""
+        new_date = date(1995, 12, 25)
+        result = client_repo.update(saved_client_id, birth_date=new_date)
+        assert result is True
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.birth_date == "1995-12-25"
+
+    def test_update_birth_time(self, client_repo: ClientRepository, saved_client_id: str) -> None:
+        """出生時間の更新が反映されること。"""
+        result = client_repo.update(saved_client_id, birth_time="14:30")
+        assert result is True
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.birth_time == "14:30"
+
+    def test_update_birth_time_to_none(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """出生時間を None に更新できること。"""
+        client_repo.update(saved_client_id, birth_time="10:00")
+        result = client_repo.update(saved_client_id, birth_time=None)
+        assert result is True
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.birth_time is None
+
+    def test_update_birth_time_unset_no_change(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """birth_time=UNSET ではカラムが変更されないこと。"""
+        client_repo.update(saved_client_id, birth_time="09:00")
+        # UNSET + name 変更のみ → birth_time は変わらない
+        client_repo.update(saved_client_id, name="別名", birth_time=UNSET)
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.birth_time == "09:00"
+
+    def test_update_gender(self, client_repo: ClientRepository, saved_client_id: str) -> None:
+        """性別の更新が反映されること。"""
+        result = client_repo.update(saved_client_id, gender="女性")
+        assert result is True
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.gender == "女性"
+
+    def test_update_gender_to_none(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """性別を None に更新できること。"""
+        client_repo.update(saved_client_id, gender="男性")
+        result = client_repo.update(saved_client_id, gender=None)
+        assert result is True
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.gender is None
+
+    def test_update_gender_unset_no_change(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """gender=UNSET ではカラムが変更されないこと。"""
+        client_repo.update(saved_client_id, gender="女性")
+        client_repo.update(saved_client_id, name="別名2", gender=UNSET)
+
+        record = client_repo.find_by_id(saved_client_id)
+        assert record is not None
+        assert record.gender == "女性"
 
 
 # ============================================================

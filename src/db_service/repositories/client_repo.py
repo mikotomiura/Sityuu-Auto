@@ -4,11 +4,22 @@ import logging
 import sqlite3
 import uuid
 from datetime import date, datetime
+from enum import Enum, auto
 
 from db_service.models import ClientRecord
 from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
+
+
+class _Unset(Enum):
+    """update() で『変更しない』を表すセンチネル値。"""
+
+    TOKEN = auto()
+
+
+UNSET = _Unset.TOKEN
+"""update() のデフォルト値。この値のままなら該当カラムを更新しない。"""
 
 
 def _row_to_client_record(row: sqlite3.Row) -> ClientRecord:
@@ -191,6 +202,9 @@ class ClientRepository:
         name: str | None = None,
         name_kana: str | None = None,
         notes: str | None = None,
+        birth_date: date | None = None,
+        birth_time: str | None | _Unset = UNSET,
+        gender: str | None | _Unset = UNSET,
     ) -> bool:
         """相談者情報を更新する。
 
@@ -199,6 +213,9 @@ class ClientRepository:
             name: 更新する名前（None の場合は変更しない）。
             name_kana: 更新するフリガナ（None の場合は変更しない）。
             notes: 更新するメモ（None の場合は変更しない）。
+            birth_date: 更新する生年月日（None の場合は変更しない）。
+            birth_time: 更新する出生時間。UNSET で変更しない、None で未設定に戻す。
+            gender: 更新する性別。UNSET で変更しない、None で未設定に戻す。
 
         Returns:
             更新成功なら True。
@@ -209,7 +226,7 @@ class ClientRepository:
         # updates にはハードコードされたカラム名リテラルのみが追加される。
         # ユーザー入力値はすべて params 経由でバインディングされるため安全。
         updates: list[str] = []
-        params: list[str] = []
+        params: list[str | None] = []
 
         if name is not None:
             updates.append("name = ?")
@@ -220,6 +237,15 @@ class ClientRepository:
         if notes is not None:
             updates.append("notes = ?")
             params.append(notes)
+        if birth_date is not None:
+            updates.append("birth_date = ?")
+            params.append(birth_date.isoformat())
+        if not isinstance(birth_time, _Unset):
+            updates.append("birth_time = ?")
+            params.append(birth_time)
+        if not isinstance(gender, _Unset):
+            updates.append("gender = ?")
+            params.append(gender)
 
         if not updates:
             return False
