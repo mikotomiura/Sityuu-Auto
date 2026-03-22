@@ -6,6 +6,7 @@
 
 import streamlit as st
 
+from components.theme import inject_custom_theme
 from config import APP_ICON, APP_TITLE
 
 st.set_page_config(
@@ -14,6 +15,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+inject_custom_theme()
 
 st.sidebar.title(f"{APP_ICON} {APP_TITLE}")
 st.sidebar.caption("四柱推命・算命学 AI鑑定支援ツール")
