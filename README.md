@@ -1,6 +1,6 @@
-# Sityuu-Auto — 占い・メンタリング支援ローカルシステム
+# Sityuu-Auto — 占い・メンタリング支援システム
 
-出品者（メンター）が自身のPC上で相談者の生年月日を入力し、**四柱推命・算命学の命式を瞬時に算出**、AIが鑑定レポートや傾聴のヒントを生成するローカルファーストのデスクトップアプリケーションです。
+出品者（メンター）が相談者の生年月日を入力し、**四柱推命・算命学の命式を瞬時に算出**、AIが鑑定レポートや傾聴のヒントを生成するアプリケーションです。マルチユーザー認証・個別APIキー管理（BYOK）に対応しています。
 
 ## 主な機能
 
@@ -10,7 +10,13 @@
 | 算命学データ | 十大主星・十二大従星・天中殺・エネルギー値を自動計算し人体星図を生成 |
 | AI鑑定レポート | 命式と悩みから5セクション構成の詳細な鑑定レポートをAIが生成 |
 | 傾聴ヒント | メンター向けの傾聴ガイド・声掛けフレーズをAIが提案 |
-| タブ表示 | 命式・人体星図・AI鑑定・傾聴ヒントをタブで切り替えて閲覧 |
+| 鑑定履歴 | 過去の鑑定結果を一覧表示・検索・詳細閲覧 |
+| 相談者管理 | 相談者の基本情報を登録・編集・一覧表示 |
+| PDFエクスポート | 鑑定結果をPDF形式でダウンロード |
+| プロンプトテンプレート管理 | AIへ送信するシステムプロンプトを編集・切替可能 |
+| ユーザー認証 | bcryptパスワードハッシュ、ログイン画面、セッション管理 |
+| 個別APIキー管理（BYOK） | ユーザーごとにAPIキーを登録。ユーザーキー→システムキーの自動フォールバック |
+| プレミアムUIテーマ | ミッドナイトブルー・ゴールドアクセントの神秘的なカスタムCSS |
 
 ### AI鑑定レポートの構成
 
@@ -30,6 +36,8 @@
 | データベース | SQLite |
 | AI連携 | Google Gemini API / OpenAI API / Anthropic API |
 | データモデル | Pydantic v2 |
+| 認証 | bcrypt |
+| PDF出力 | reportlab |
 
 ## セットアップ
 
@@ -38,7 +46,7 @@
 - Python 3.11 以上
 - pip（最新版推奨）
 - Git
-- LLM APIキー（Gemini / OpenAI / Anthropic のいずれか）
+- LLM APIキー（Gemini / OpenAI / Anthropic のいずれか。BYOKによるUI登録も可）
 
 ### インストール
 
@@ -57,12 +65,14 @@ pip install -e ".[dev]"
 
 # 4. 環境変数の設定
 cp .env.example .env
-# .env を編集し、APIキーを設定
+# .env を編集し、APIキーを設定（BYOKを使う場合は空でもOK）
 ```
 
 ### APIキーの設定
 
-`.env` ファイルを編集して、使用するプロバイダーのAPIキーを設定してください。
+APIキーは以下の **2つの方法** で設定できます。
+
+**方法1: `.env` ファイル（システム共通キー）**
 
 ```env
 # いずれか1つのAPIキーがあれば動作します
@@ -75,15 +85,17 @@ DEFAULT_API_PROVIDER=gemini
 DEFAULT_MODEL=gemini-2.5-flash
 ```
 
+**方法2: BYOK（ユーザー個別キー登録）**
+
+ログイン後、**設定 → アカウント設定** タブで各プロバイダーのAPIキーを登録できます。
+ユーザー個別キーが登録されている場合、`.env` のシステムキーより優先して使用されます。
+
 > Gemini API は無料枠があるため、MVP検証に最適です。
 > [Google AI Studio](https://aistudio.google.com/) でAPIキーを取得できます。
 
 ### 起動
 
 ```bash
-# データベースの初期化
-python scripts/init_db.py
-
 # アプリケーションの起動
 streamlit run src/app.py
 ```
@@ -128,28 +140,34 @@ python scripts/create_user.py <ユーザー名> --role admin
 - **パスワードの変更**（設定 → アカウント設定）
 - **自身のAPIキーの登録**（BYOK — 設定 → アカウント設定）
 
-> ユーザーが個人のAPIキーを登録すると、そのキーがシステムの `.env` キーより優先して使用されます。
-
 ## 使い方
 
-1. **相談者情報を入力** — 名前（仮名可）、生年月日、出生時間、悩みを入力
-2. **命式を算出** — 「命式を算出して鑑定を開始」ボタンで命式を自動算出
-3. **AI鑑定レポートを生成** — 「AI鑑定レポートを生成」ボタンで詳細な分析を取得
-4. **結果をタブで確認** — 命式・人体星図・AI鑑定・傾聴ヒントを切り替えて閲覧
+1. **ログイン** — ユーザー名・パスワードでログイン
+2. **相談者情報を入力** — 名前（仮名可）、生年月日、出生時間、悩みを入力
+3. **命式を算出** — 「命式を算出して鑑定を開始」ボタンで命式を自動算出
+4. **AI鑑定レポートを生成** — 「AI鑑定レポートを生成」ボタンで詳細な分析を取得
+5. **結果をタブで確認** — 命式・人体星図・AI鑑定・傾聴ヒントを切り替えて閲覧
 
 ## プロジェクト構成
 
 ```
 src/
-├── app.py                    # Streamlit エントリーポイント
-├── config.py                 # アプリケーション設定
+├── app.py                    # Streamlit エントリーポイント（認証ゲート含む）
+├── config.py                 # アプリケーション設定・セッションキー定義
+├── db_init.py                # DB接続キャッシュ・初期データ投入
 ├── pages/
-│   └── 01_reading.py         # 鑑定ページ
+│   ├── 01_reading.py         # 鑑定ページ（入力→算出→AI生成→表示）
+│   ├── 02_history.py         # 鑑定履歴ページ（一覧・検索・詳細）
+│   ├── 03_clients.py         # 相談者管理ページ（CRUD）
+│   └── 04_settings.py        # 設定ページ（API・テンプレート・アカウント）
 ├── components/               # 再利用可能UIコンポーネント
 │   ├── input_form.py         # 入力フォーム
 │   ├── natal_chart_display.py # 命式表表示
-│   └── reading_result.py     # 鑑定結果表示
-├── fortune_engine/           # 命式計算エンジン
+│   ├── reading_result.py     # 鑑定結果表示
+│   ├── history_table.py      # 履歴テーブル
+│   ├── pdf_export.py         # PDFエクスポート
+│   └── theme.py              # プレミアムUIテーマ（カスタムCSS）
+├── fortune_engine/           # 命式計算エンジン（ロジック層）
 │   ├── calculator.py         # 四柱推命の命式算出
 │   ├── sanmei.py             # 算命学データ算出
 │   ├── models.py             # データモデル（Pydantic）
@@ -158,10 +176,32 @@ src/
 ├── ai_service/               # AI連携層
 │   ├── client.py             # LLM APIクライアント（Gemini/OpenAI/Anthropic）
 │   ├── prompt_builder.py     # プロンプト構築
-│   └── templates/            # プロンプトテンプレート
-└── db_service/               # DB層
-    ├── database.py           # DB接続・初期化
-    └── repositories/         # リポジトリパターン
+│   ├── models.py             # AI応答データモデル
+│   └── templates/            # プロンプトテンプレート（Markdown）
+├── db_service/               # DB層
+│   ├── database.py           # DB接続・マイグレーション実行
+│   ├── models.py             # DBレコード定義（dataclass）
+│   ├── repositories/         # リポジトリパターン
+│   │   ├── client_repo.py    # 相談者リポジトリ
+│   │   ├── session_repo.py   # 鑑定セッションリポジトリ
+│   │   ├── prompt_template_repo.py # テンプレートリポジトリ
+│   │   └── user_repo.py      # ユーザーリポジトリ（認証・BYOK）
+│   └── migrations/           # SQLマイグレーション
+└── utils/                    # 共通ユーティリティ
+    ├── auth.py               # 認証（ログイン・セッション管理）
+    ├── exceptions.py         # カスタム例外
+    ├── logger.py             # ロギング設定
+    ├── validators.py         # バリデーション
+    └── text_utils.py         # テキスト処理
+
+scripts/
+├── init_db.py                # DB初期化スクリプト
+├── create_user.py            # ユーザーアカウント発行スクリプト
+└── seed_data.py              # テストデータ投入スクリプト
+
+tests/
+├── unit/                     # ユニットテスト（253件）
+└── integration/              # 統合テスト
 ```
 
 ## 開発
@@ -171,6 +211,9 @@ src/
 ```bash
 # テスト実行
 pytest tests/ -v
+
+# カバレッジ付き
+pytest --cov=src --cov-report=html
 
 # リント
 ruff check src/ tests/
@@ -198,6 +241,8 @@ refactor(scope): リファクタリングの説明
 - **APIキー**: `.env` ファイルで管理（Git管理外）。ユーザー個別キーはDBに保存
 - **個人情報**: ローカルSQLiteにのみ保存、クラウドに送信しない
 - **ログ**: 個人情報（名前・生年月日・悩み・パスワード）はログに出力しない
+- **SQLインジェクション対策**: 全クエリでパラメータバインディングを使用
+- **DBファイル権限**: macOS/Linuxでは所有者のみ読み書き可（0o600）
 
 ## ライセンス
 
