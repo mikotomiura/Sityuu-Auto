@@ -10,13 +10,13 @@ from dotenv import load_dotenv
 
 from components.theme import inject_custom_theme
 from config import APP_ICON, APP_TITLE
+from db_init import get_db_connection
+from db_service.repositories.user_repo import UserRepository
+from utils.auth import get_current_username, logout, require_login
 from utils.logger import setup_logging
 
 load_dotenv()
 setup_logging()
-from db_init import get_db_connection
-from db_service.repositories.user_repo import UserRepository
-from utils.auth import get_current_username, is_logged_in, logout, require_login
 
 st.set_page_config(
     page_title=APP_TITLE,

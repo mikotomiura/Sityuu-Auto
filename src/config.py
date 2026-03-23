@@ -23,6 +23,7 @@ SESSION_KEY_HISTORY_SEARCH_QUERY = "history_search_query"
 # --- 相談者管理ページ用 ---
 SESSION_KEY_CLIENTS_SELECTED = "clients_selected_client"
 SESSION_KEY_CLIENTS_SEARCH_QUERY = "clients_search_query"
+SESSION_KEY_CLIENTS_EDIT_SUCCESS = "client_edit_success"
 
 # --- 認証・ユーザー管理用 ---
 SESSION_KEY_AUTH_USER_ID = "auth_user_id"

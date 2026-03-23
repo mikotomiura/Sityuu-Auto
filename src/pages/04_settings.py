@@ -48,8 +48,8 @@ def _initialize_state() -> None:
         st.session_state[SESSION_KEY_TEMPLATE_EDIT_ID] = None
 
 
-def _check_api_key(provider: str) -> bool:
-    """指定プロバイダーのAPIキーが環境変数に設定されているか確認する。
+def _check_system_api_key(provider: str) -> bool:
+    """指定プロバイダーのシステムAPIキー（.env）が設定されているか確認する。
 
     Args:
         provider: APIプロバイダー名。
@@ -114,7 +114,7 @@ def _render_api_settings() -> None:
     conn = get_db_connection()
     user_repo = UserRepository(conn)
     user_key = user_repo.get_api_key(user_id, selected_provider) if user_id else None
-    has_system_key = _check_api_key(selected_provider)
+    has_system_key = _check_system_api_key(selected_provider)
 
     if user_key:
         st.success(f"個人APIキーが登録済みです（{selected_provider}）。")
@@ -241,7 +241,7 @@ def _render_account_settings() -> None:
             if current_value:
                 st.caption(f"登録済み: {display_value}")
             else:
-                has_system = _check_api_key(provider)
+                has_system = _check_system_api_key(provider)
                 if has_system:
                     st.caption("個人キー未登録（システムキーを使用中）")
                 else:

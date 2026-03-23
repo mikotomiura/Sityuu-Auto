@@ -138,6 +138,7 @@ class UserRepository:
 
         Raises:
             AuthenticationError: 認証失敗時。
+            DatabaseError: DB検索に失敗した場合。
         """
         user = self.find_by_username(username)
         if user is None:

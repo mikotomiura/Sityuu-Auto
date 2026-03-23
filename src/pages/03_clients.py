@@ -12,6 +12,7 @@ import streamlit as st
 
 from config import (
     CONCERN_PREVIEW_LENGTH,
+    SESSION_KEY_CLIENTS_EDIT_SUCCESS,
     SESSION_KEY_CLIENTS_SEARCH_QUERY,
     SESSION_KEY_CLIENTS_SELECTED,
 )
@@ -133,7 +134,7 @@ def _render_detail_view(
     st.caption(f"登録日: {client.created_at[:10]} | 更新日: {client.updated_at[:10]}")
 
     # --- 更新成功メッセージ（rerun後に表示） ---
-    if st.session_state.pop("client_edit_success", False):
+    if st.session_state.pop(SESSION_KEY_CLIENTS_EDIT_SUCCESS, False):
         st.success("相談者情報を更新しました。")
 
     # --- 相談者情報の編集 ---
@@ -251,7 +252,7 @@ def _render_detail_view(
                 if notes_changed:
                     update_kwargs["notes"] = new_notes
                 client_repo.update(client_id=client_id, **update_kwargs)
-                st.session_state["client_edit_success"] = True
+                st.session_state[SESSION_KEY_CLIENTS_EDIT_SUCCESS] = True
                 st.rerun()
             except DatabaseError as e:
                 logger.error("相談者情報の更新に失敗: %s", e)

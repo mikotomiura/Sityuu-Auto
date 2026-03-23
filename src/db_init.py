@@ -93,7 +93,7 @@ def _seed_default_admin(conn: sqlite3.Connection) -> None:
     # コンソールに初期パスワードを表示（ログではなく標準出力に1度だけ）
     print("=" * 50)  # noqa: T201
     print("  初期管理者アカウント")  # noqa: T201
-    print(f"  ユーザー名: admin")  # noqa: T201
+    print("  ユーザー名: admin")  # noqa: T201
     print(f"  パスワード: {initial_password}")  # noqa: T201
     print("  ※ 初回ログイン後に必ず変更してください")  # noqa: T201
     print("=" * 50)  # noqa: T201
