@@ -33,12 +33,12 @@ from config import (
 )
 from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
-from db_service.repositories.user_repo import UserRepository
-from utils.auth import get_current_user_id
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
 from db_service.repositories.session_repo import SessionRepository
+from db_service.repositories.user_repo import UserRepository
 from fortune_engine import calculate_fortune, format_for_ai_prompt
 from fortune_engine.models import FortuneResult
+from utils.auth import get_current_user_id
 from utils.exceptions import (
     AIServiceConfigError,
     AIServiceError,
@@ -268,8 +268,9 @@ def main() -> None:
     api_key = _get_api_key(provider)
 
     if not api_key:
-        st.info(
-            "AI鑑定を利用するには `.env` ファイルにAPIキーを設定してください。\n\n"
+        st.warning(
+            "AI鑑定を利用するにはAPIキーの設定が必要です。\n\n"
+            "**設定 → アカウント設定** タブから、ご自身のAPIキーを登録してください。\n\n"
             f"現在のプロバイダー: `{provider}`"
         )
         # APIなしでも命式結果は表示
@@ -331,7 +332,10 @@ def main() -> None:
                 ai_text = llm.generate(system_prompt, user_prompt)
                 st.session_state[SESSION_KEY_AI_RESPONSE] = ai_text
         except AIServiceConfigError:
-            st.error("API設定に問題があります。`.env` ファイルのAPIキーを確認してください。")
+            st.error(
+                "API設定に問題があります。"
+                "**設定 → アカウント設定** タブでAPIキーを確認してください。"
+            )
             return
         except AIServiceError as e:
             logger.error("AI鑑定レポートの生成に失敗: %s", e)

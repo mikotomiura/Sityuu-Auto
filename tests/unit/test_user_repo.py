@@ -173,6 +173,55 @@ class TestUserRepositoryApiKeys:
         assert user_repo.get_api_key("nonexistent-id", "gemini") is None
 
 
+class TestUserRepositoryPreferences:
+    """ユーザー設定（プロバイダー・モデル）永続化のテスト。"""
+
+    def test_preferences_initially_none(self, user_repo: UserRepository) -> None:
+        """新規ユーザーの設定がNoneであること。"""
+        user_id = user_repo.create("testuser", "password123")
+        user = user_repo.find_by_id(user_id)
+        assert user is not None
+        assert user.preferred_provider is None
+        assert user.preferred_model is None
+
+    def test_update_preferences(self, user_repo: UserRepository) -> None:
+        """設定を保存・取得できること。"""
+        user_id = user_repo.create("testuser", "password123")
+        result = user_repo.update_preferences(user_id, "openai", "gpt-4o")
+        assert result is True
+
+        user = user_repo.find_by_id(user_id)
+        assert user is not None
+        assert user.preferred_provider == "openai"
+        assert user.preferred_model == "gpt-4o"
+
+    def test_update_preferences_partial(self, user_repo: UserRepository) -> None:
+        """プロバイダーのみ更新できること。"""
+        user_id = user_repo.create("testuser", "password123")
+        user_repo.update_preferences(user_id, "gemini", None)
+
+        user = user_repo.find_by_id(user_id)
+        assert user is not None
+        assert user.preferred_provider == "gemini"
+        assert user.preferred_model is None
+
+    def test_preferences_persist_across_reads(self, user_repo: UserRepository) -> None:
+        """保存した設定が再取得時も維持されること。"""
+        user_id = user_repo.create("testuser", "password123")
+        user_repo.update_preferences(user_id, "anthropic", "claude-sonnet-4-20250514")
+
+        # 再度取得
+        user = user_repo.find_by_id(user_id)
+        assert user is not None
+        assert user.preferred_provider == "anthropic"
+        assert user.preferred_model == "claude-sonnet-4-20250514"
+
+    def test_update_preferences_nonexistent_user(self, user_repo: UserRepository) -> None:
+        """存在しないユーザーでFalseが返ること。"""
+        result = user_repo.update_preferences("nonexistent-id", "gemini", "model")
+        assert result is False
+
+
 class TestUserRepositoryCount:
     """ユーザー数取得のテスト。"""
 

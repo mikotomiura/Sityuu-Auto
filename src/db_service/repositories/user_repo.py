@@ -290,6 +290,44 @@ class UserRepository:
             logger.info("APIキーを更新: user_id=%s, provider=%s", user_id, provider)
         return updated
 
+    def update_preferences(
+        self,
+        user_id: str,
+        preferred_provider: str | None = None,
+        preferred_model: str | None = None,
+    ) -> bool:
+        """ユーザーのAPI設定（プロバイダー・モデル）を保存する。
+
+        Args:
+            user_id: ユーザーの UUID。
+            preferred_provider: 優先APIプロバイダー名。
+            preferred_model: 優先モデル名。
+
+        Returns:
+            更新成功なら True。
+
+        Raises:
+            DatabaseError: 更新に失敗した場合。
+        """
+        now = datetime.now().isoformat()
+
+        try:
+            cursor = self._conn.execute(
+                """UPDATE users
+                   SET preferred_provider = ?, preferred_model = ?, updated_at = ?
+                   WHERE id = ?""",
+                (preferred_provider, preferred_model, now, user_id),
+            )
+            self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error("ユーザー設定の更新失敗: %s", e)
+            raise DatabaseError("ユーザー設定の更新に失敗しました") from e
+
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.info("ユーザー設定を更新: user_id=%s", user_id)
+        return updated
+
     def count(self) -> int:
         """ユーザー数を取得する。
 

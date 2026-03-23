@@ -1,6 +1,7 @@
 """設定ページ — API設定・プロンプトテンプレート管理・アカウント設定。"""
 
 import json
+import logging
 import os
 
 import streamlit as st
@@ -14,7 +15,6 @@ from config import (
     PROVIDER_DEFAULT_MODELS,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
-    SESSION_KEY_AUTH_USER_ID,
     SESSION_KEY_TEMPLATE_EDIT_ID,
     SUPPORTED_PROVIDERS,
 )
@@ -26,6 +26,8 @@ from utils.auth import get_current_user_id
 from utils.exceptions import DatabaseError
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def _initialize_state() -> None:
@@ -53,6 +55,24 @@ def _check_api_key(provider: str) -> bool:
     return bool(os.environ.get(env_var))
 
 
+def _save_user_preferences(provider: str, model: str) -> None:
+    """ユーザーのAPI設定をDBに永続化する。
+
+    Args:
+        provider: APIプロバイダー名。
+        model: モデル名。
+    """
+    user_id = get_current_user_id()
+    if not user_id:
+        return
+    try:
+        conn = get_db_connection()
+        user_repo = UserRepository(conn)
+        user_repo.update_preferences(user_id, provider, model)
+    except DatabaseError:
+        logger.warning("ユーザー設定のDB永続化に失敗: user_id=%s", user_id)
+
+
 def _render_api_settings() -> None:
     """API設定セクションを表示する。"""
     st.header("API設定")
@@ -77,10 +97,12 @@ def _render_api_settings() -> None:
         }.get(x, x),
     )
 
-    # プロバイダー変更時にモデルをデフォルトにリセット
+    # プロバイダー変更時にモデルをデフォルトにリセット＆DBに永続化
     if selected_provider != current_provider:
+        new_model = PROVIDER_DEFAULT_MODELS.get(selected_provider, "")
         st.session_state[SESSION_KEY_API_PROVIDER] = selected_provider
-        st.session_state[SESSION_KEY_API_MODEL] = PROVIDER_DEFAULT_MODELS.get(selected_provider, "")
+        st.session_state[SESSION_KEY_API_MODEL] = new_model
+        _save_user_preferences(selected_provider, new_model)
         st.rerun()
 
     # --- APIキーステータス（ユーザーBYOK + システム） ---
@@ -112,6 +134,7 @@ def _render_api_settings() -> None:
 
     if model_input != current_model:
         st.session_state[SESSION_KEY_API_MODEL] = model_input
+        _save_user_preferences(selected_provider, model_input)
 
     # --- Gemini フォールバック情報 ---
     if selected_provider == "gemini":

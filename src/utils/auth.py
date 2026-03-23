@@ -10,6 +10,8 @@ import time
 import streamlit as st
 
 from config import (
+    SESSION_KEY_API_MODEL,
+    SESSION_KEY_API_PROVIDER,
     SESSION_KEY_AUTH_ROLE,
     SESSION_KEY_AUTH_USER_ID,
     SESSION_KEY_AUTH_USERNAME,
@@ -48,8 +50,14 @@ def get_current_username() -> str | None:
 
 
 def logout() -> None:
-    """ログアウト処理（セッションから認証情報を削除）。"""
-    for key in (SESSION_KEY_AUTH_USER_ID, SESSION_KEY_AUTH_USERNAME, SESSION_KEY_AUTH_ROLE):
+    """ログアウト処理（セッションから認証情報とAPI設定を削除）。"""
+    for key in (
+        SESSION_KEY_AUTH_USER_ID,
+        SESSION_KEY_AUTH_USERNAME,
+        SESSION_KEY_AUTH_ROLE,
+        SESSION_KEY_API_PROVIDER,
+        SESSION_KEY_API_MODEL,
+    ):
         st.session_state.pop(key, None)
 
 
@@ -69,6 +77,11 @@ def _login(user_repo: UserRepository, username: str, password: str) -> bool:
         st.session_state[SESSION_KEY_AUTH_USER_ID] = user.id
         st.session_state[SESSION_KEY_AUTH_USERNAME] = user.username
         st.session_state[SESSION_KEY_AUTH_ROLE] = user.role
+        # ユーザーの保存済みAPI設定を復元
+        if user.preferred_provider:
+            st.session_state[SESSION_KEY_API_PROVIDER] = user.preferred_provider
+        if user.preferred_model:
+            st.session_state[SESSION_KEY_API_MODEL] = user.preferred_model
         st.session_state.pop("_auth_fail_count", None)
         logger.info("ログイン成功: username=%s", username)
         return True
