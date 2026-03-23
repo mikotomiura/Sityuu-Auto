@@ -1,0 +1,308 @@
+"""ユーザーリポジトリ — 認証・BYOK APIキー管理。"""
+
+import json
+import logging
+import sqlite3
+import uuid
+from datetime import datetime
+
+import bcrypt
+
+from db_service.models import UserRecord
+from utils.exceptions import AuthenticationError, DatabaseError
+
+logger = logging.getLogger(__name__)
+
+
+def _row_to_user_record(row: sqlite3.Row) -> UserRecord:
+    """sqlite3.Row を UserRecord に変換する。
+
+    Args:
+        row: SQLiteの行データ。
+
+    Returns:
+        変換された UserRecord。
+    """
+    return UserRecord(
+        id=row["id"],
+        username=row["username"],
+        password_hash=row["password_hash"],
+        api_keys_json=row["api_keys_json"],
+        preferred_provider=row["preferred_provider"],
+        preferred_model=row["preferred_model"],
+        role=row["role"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def hash_password(password: str) -> str:
+    """パスワードを bcrypt でハッシュ化する。
+
+    Args:
+        password: 平文パスワード。
+
+    Returns:
+        bcrypt ハッシュ文字列。
+    """
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """パスワードとハッシュを照合する。
+
+    Args:
+        password: 平文パスワード。
+        password_hash: bcrypt ハッシュ文字列。
+
+    Returns:
+        一致する場合は True。
+    """
+    return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+
+
+class UserRepository:
+    """ユーザーデータのCRUD操作を提供する。"""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def create(
+        self,
+        username: str,
+        password: str,
+        role: str = "user",
+    ) -> str:
+        """ユーザーを新規作成する。
+
+        Args:
+            username: ユーザー名（ユニーク）。
+            password: 平文パスワード（ハッシュ化して保存）。
+            role: ロール（"admin" または "user"）。
+
+        Returns:
+            生成された UUID（文字列）。
+
+        Raises:
+            DatabaseError: 保存に失敗した場合。
+        """
+        user_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        pw_hash = hash_password(password)
+
+        try:
+            self._conn.execute(
+                """
+                INSERT INTO users
+                    (id, username, password_hash, api_keys_json,
+                     preferred_provider, preferred_model, role, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (user_id, username, pw_hash, None, None, None, role, now, now),
+            )
+            self._conn.commit()
+        except sqlite3.IntegrityError as e:
+            logger.error("ユーザー作成失敗（重複）: %s", e)
+            raise DatabaseError(f"ユーザー名 '{username}' は既に使用されています") from e
+        except sqlite3.Error as e:
+            logger.error("ユーザー作成失敗: %s", e)
+            raise DatabaseError("ユーザーの作成に失敗しました") from e
+
+        logger.info("ユーザーを作成: user_id=%s", user_id)
+        return user_id
+
+    def authenticate(self, username: str, password: str) -> UserRecord:
+        """ユーザー名とパスワードで認証する。
+
+        Args:
+            username: ユーザー名。
+            password: 平文パスワード。
+
+        Returns:
+            認証成功時の UserRecord。
+
+        Raises:
+            AuthenticationError: 認証失敗時。
+        """
+        user = self.find_by_username(username)
+        if user is None:
+            raise AuthenticationError("ユーザー名またはパスワードが正しくありません")
+
+        if not verify_password(password, user.password_hash):
+            raise AuthenticationError("ユーザー名またはパスワードが正しくありません")
+
+        return user
+
+    def find_by_id(self, user_id: str) -> UserRecord | None:
+        """IDでユーザーを検索する。
+
+        Args:
+            user_id: ユーザーの UUID。
+
+        Returns:
+            見つかった場合は UserRecord、見つからない場合は None。
+
+        Raises:
+            DatabaseError: 検索に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT * FROM users WHERE id = ?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+        except sqlite3.Error as e:
+            logger.error("ユーザー検索失敗: %s", e)
+            raise DatabaseError("ユーザーの検索に失敗しました") from e
+
+        if row is None:
+            return None
+        return _row_to_user_record(row)
+
+    def find_by_username(self, username: str) -> UserRecord | None:
+        """ユーザー名でユーザーを検索する。
+
+        Args:
+            username: ユーザー名。
+
+        Returns:
+            見つかった場合は UserRecord、見つからない場合は None。
+
+        Raises:
+            DatabaseError: 検索に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT * FROM users WHERE username = ?",
+                (username,),
+            )
+            row = cursor.fetchone()
+        except sqlite3.Error as e:
+            logger.error("ユーザー名検索失敗: %s", e)
+            raise DatabaseError("ユーザーの検索に失敗しました") from e
+
+        if row is None:
+            return None
+        return _row_to_user_record(row)
+
+    def update_password(self, user_id: str, new_password: str) -> bool:
+        """パスワードを更新する。
+
+        Args:
+            user_id: ユーザーの UUID。
+            new_password: 新しい平文パスワード。
+
+        Returns:
+            更新成功なら True。
+
+        Raises:
+            DatabaseError: 更新に失敗した場合。
+        """
+        pw_hash = hash_password(new_password)
+        now = datetime.now().isoformat()
+
+        try:
+            cursor = self._conn.execute(
+                "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+                (pw_hash, now, user_id),
+            )
+            self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error("パスワード更新失敗: %s", e)
+            raise DatabaseError("パスワードの更新に失敗しました") from e
+
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.info("パスワードを更新: user_id=%s", user_id)
+        return updated
+
+    def get_api_key(self, user_id: str, provider: str) -> str | None:
+        """指定プロバイダーのAPIキーを取得する。
+
+        Args:
+            user_id: ユーザーの UUID。
+            provider: APIプロバイダー名（"gemini", "openai", "anthropic"）。
+
+        Returns:
+            APIキー文字列。未登録の場合は None。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        user = self.find_by_id(user_id)
+        if user is None or not user.api_keys_json:
+            return None
+
+        try:
+            keys: dict[str, str] = json.loads(user.api_keys_json)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        return keys.get(provider)
+
+    def update_api_key(self, user_id: str, provider: str, api_key: str) -> bool:
+        """指定プロバイダーのAPIキーを保存・更新する。
+
+        Args:
+            user_id: ユーザーの UUID。
+            provider: APIプロバイダー名。
+            api_key: APIキー文字列。空文字の場合はキーを削除する。
+
+        Returns:
+            更新成功なら True。
+
+        Raises:
+            DatabaseError: 更新に失敗した場合。
+        """
+        user = self.find_by_id(user_id)
+        if user is None:
+            return False
+
+        # 既存のキーをパース
+        keys: dict[str, str] = {}
+        if user.api_keys_json:
+            try:
+                keys = json.loads(user.api_keys_json)
+            except (json.JSONDecodeError, TypeError):
+                keys = {}
+
+        # キーの追加・更新・削除
+        if api_key:
+            keys[provider] = api_key
+        else:
+            keys.pop(provider, None)
+
+        keys_json = json.dumps(keys) if keys else None
+        now = datetime.now().isoformat()
+
+        try:
+            cursor = self._conn.execute(
+                "UPDATE users SET api_keys_json = ?, updated_at = ? WHERE id = ?",
+                (keys_json, now, user_id),
+            )
+            self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error("APIキー更新失敗: %s", e)
+            raise DatabaseError("APIキーの更新に失敗しました") from e
+
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.info("APIキーを更新: user_id=%s, provider=%s", user_id, provider)
+        return updated
+
+    def count(self) -> int:
+        """ユーザー数を取得する。
+
+        Returns:
+            ユーザー数。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute("SELECT COUNT(*) as cnt FROM users")
+            row = cursor.fetchone()
+            return row["cnt"] if row else 0
+        except sqlite3.Error as e:
+            logger.error("ユーザー数の取得に失敗: %s", e)
+            raise DatabaseError("ユーザー数の取得に失敗しました") from e

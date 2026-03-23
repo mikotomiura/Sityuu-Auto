@@ -23,3 +23,7 @@ class DatabaseError(FortuneAppError):
 
 class PDFExportError(FortuneAppError):
     """PDFエクスポートエラー。"""
+
+
+class AuthenticationError(FortuneAppError):
+    """認証エラー（ログイン失敗・未認証アクセスなど）。"""

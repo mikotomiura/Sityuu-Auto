@@ -67,6 +67,33 @@ class SessionRecord:
 
 
 @dataclass(frozen=True)
+class UserRecord:
+    """ユーザーテーブルのレコード。
+
+    Attributes:
+        id: UUID 文字列。
+        username: ユーザー名（ユニーク）。
+        password_hash: bcrypt ハッシュ化されたパスワード。
+        api_keys_json: プロバイダー別APIキーのJSON文字列。
+        preferred_provider: 優先APIプロバイダー。
+        preferred_model: 優先モデル名。
+        role: ユーザーロール（"admin" または "user"）。
+        created_at: 作成日時（ISO 8601 形式）。
+        updated_at: 更新日時（ISO 8601 形式）。
+    """
+
+    id: str
+    username: str
+    password_hash: str
+    api_keys_json: str | None
+    preferred_provider: str | None
+    preferred_model: str | None
+    role: str
+    created_at: str
+    updated_at: str
+
+
+@dataclass(frozen=True)
 class PromptTemplateRecord:
     """プロンプトテンプレートテーブルのレコード。
 

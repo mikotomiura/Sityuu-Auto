@@ -33,6 +33,8 @@ from config import (
 )
 from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
+from db_service.repositories.user_repo import UserRepository
+from utils.auth import get_current_user_id
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
 from db_service.repositories.session_repo import SessionRepository
 from fortune_engine import calculate_fortune, format_for_ai_prompt
@@ -86,7 +88,10 @@ def _clear_reading_state() -> None:
 
 
 def _get_api_key(provider: str) -> str | None:
-    """環境変数からAPIキーを取得する。
+    """APIキーを取得する（BYOK フォールバック対応）。
+
+    ユーザーのDBに登録されたAPIキーを優先し、
+    未登録の場合は環境変数（.env）のシステムキーにフォールバックする。
 
     Args:
         provider: APIプロバイダー名。
@@ -94,6 +99,16 @@ def _get_api_key(provider: str) -> str | None:
     Returns:
         APIキー文字列。未設定の場合はNone。
     """
+    # 1. ユーザーの個人APIキーを確認
+    user_id = get_current_user_id()
+    if user_id:
+        conn = get_db_connection()
+        user_repo = UserRepository(conn)
+        user_key = user_repo.get_api_key(user_id, provider)
+        if user_key:
+            return user_key
+
+    # 2. システムの環境変数にフォールバック
     env_var = API_KEY_ENV_MAP.get(provider)
     if env_var:
         return os.environ.get(env_var)

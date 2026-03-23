@@ -1,5 +1,6 @@
-"""設定ページ — API設定・プロンプトテンプレート管理。"""
+"""設定ページ — API設定・プロンプトテンプレート管理・アカウント設定。"""
 
+import json
 import os
 
 import streamlit as st
@@ -13,12 +14,15 @@ from config import (
     PROVIDER_DEFAULT_MODELS,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
+    SESSION_KEY_AUTH_USER_ID,
     SESSION_KEY_TEMPLATE_EDIT_ID,
     SUPPORTED_PROVIDERS,
 )
 from db_init import get_db_connection
 from db_service.models import PromptTemplateRecord
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
+from db_service.repositories.user_repo import UserRepository, verify_password
+from utils.auth import get_current_user_id
 from utils.exceptions import DatabaseError
 
 load_dotenv()
@@ -79,13 +83,23 @@ def _render_api_settings() -> None:
         st.session_state[SESSION_KEY_API_MODEL] = PROVIDER_DEFAULT_MODELS.get(selected_provider, "")
         st.rerun()
 
-    # --- APIキーステータス ---
-    has_key = _check_api_key(selected_provider)
-    if has_key:
-        st.success(f"{selected_provider} のAPIキーが設定されています。")
+    # --- APIキーステータス（ユーザーBYOK + システム） ---
+    user_id = get_current_user_id()
+    conn = get_db_connection()
+    user_repo = UserRepository(conn)
+    user_key = user_repo.get_api_key(user_id, selected_provider) if user_id else None
+    has_system_key = _check_api_key(selected_provider)
+
+    if user_key:
+        st.success(f"個人APIキーが登録済みです（{selected_provider}）。")
+    elif has_system_key:
+        st.info(f"システムAPIキーを使用します（{selected_provider}）。")
     else:
         env_var = API_KEY_ENV_MAP.get(selected_provider, "")
-        st.warning(f"APIキーが未設定です。`.env` ファイルに `{env_var}` を設定してください。")
+        st.warning(
+            f"APIキーが未設定です。「アカウント設定」タブで個人キーを登録するか、"
+            f"`.env` ファイルに `{env_var}` を設定してください。"
+        )
 
     # --- モデル設定 ---
     default_model = PROVIDER_DEFAULT_MODELS.get(selected_provider, "")
@@ -113,12 +127,106 @@ def _render_api_settings() -> None:
     col1, col2, col3 = st.columns(3)
     col1.metric("プロバイダー", selected_provider)
     col2.metric("モデル", model_input or default_model)
-    col3.metric("APIキー", "設定済み" if has_key else "未設定")
+    key_source = "個人キー" if user_key else ("システム" if has_system_key else "未設定")
+    col3.metric("APIキー", key_source)
 
+
+def _render_account_settings() -> None:
+    """アカウント設定セクション（パスワード変更・APIキー管理）を表示する。"""
+    user_id = get_current_user_id()
+    if not user_id:
+        st.error("ログインが必要です。")
+        return
+
+    conn = get_db_connection()
+    user_repo = UserRepository(conn)
+    user = user_repo.find_by_id(user_id)
+    if not user:
+        st.error("ユーザー情報の取得に失敗しました。")
+        return
+
+    # --- パスワード変更 ---
+    st.header("パスワードの変更")
+    with st.form("change_password_form"):
+        current_pw = st.text_input("現在のパスワード", type="password")
+        new_pw = st.text_input("新しいパスワード", type="password")
+        confirm_pw = st.text_input("新しいパスワード（確認）", type="password")
+        pw_submitted = st.form_submit_button("パスワードを変更", use_container_width=True)
+
+        if pw_submitted:
+            if not current_pw or not new_pw or not confirm_pw:
+                st.error("すべてのフィールドを入力してください。")
+            elif not verify_password(current_pw, user.password_hash):
+                st.error("現在のパスワードが正しくありません。")
+            elif new_pw != confirm_pw:
+                st.error("新しいパスワードが一致しません。")
+            elif len(new_pw) < 8:
+                st.error("パスワードは8文字以上で設定してください。")
+            else:
+                try:
+                    user_repo.update_password(user_id, new_pw)
+                    st.success("パスワードを変更しました。")
+                except DatabaseError:
+                    st.error("パスワードの変更に失敗しました。")
+
+    st.markdown("---")
+
+    # --- APIキー管理（BYOK） ---
+    st.header("APIキーの管理（BYOK）")
     st.caption(
-        "APIキーは `.env` ファイルで管理されます。"
-        "セキュリティ上、UI上での入力には対応していません。"
+        "各プロバイダーのAPIキーを登録すると、システムのAPIキーよりも優先して使用されます。"
+        "空欄にして保存するとキーを削除できます。"
     )
+
+    # 現在登録されているキーを取得
+    current_keys: dict[str, str] = {}
+    if user.api_keys_json:
+        try:
+            current_keys = json.loads(user.api_keys_json)
+        except (json.JSONDecodeError, TypeError):
+            current_keys = {}
+
+    provider_labels: dict[str, str] = {
+        "gemini": "Google Gemini",
+        "openai": "OpenAI",
+        "anthropic": "Anthropic",
+    }
+
+    for provider in SUPPORTED_PROVIDERS:
+        label = provider_labels.get(provider, provider)
+        current_value = current_keys.get(provider, "")
+        # マスク表示
+        display_value = f"****{current_value[-4:]}" if current_value else ""
+
+        with st.form(f"api_key_form_{provider}"):
+            st.subheader(label)
+            if current_value:
+                st.caption(f"登録済み: {display_value}")
+            else:
+                has_system = _check_api_key(provider)
+                if has_system:
+                    st.caption("個人キー未登録（システムキーを使用中）")
+                else:
+                    st.caption("未登録")
+
+            new_key = st.text_input(
+                f"{label} APIキー",
+                type="password",
+                placeholder="新しいAPIキーを入力（空欄で削除）",
+                key=f"api_key_input_{provider}",
+            )
+            key_submitted = st.form_submit_button("保存", use_container_width=True)
+
+            if key_submitted:
+                try:
+                    user_repo.update_api_key(user_id, provider, new_key)
+                    if new_key:
+                        st.success(f"{label} のAPIキーを更新しました。")
+                    else:
+                        st.success(f"{label} のAPIキーを削除しました。")
+                    st.rerun()
+                except DatabaseError:
+                    st.error("APIキーの更新に失敗しました。")
 
 
 def _render_template_list(repo: PromptTemplateRepository) -> None:
@@ -300,7 +408,9 @@ def main() -> None:
 
     st.title("設定")
 
-    tab_api, tab_template = st.tabs(["API設定", "プロンプトテンプレート"])
+    tab_api, tab_template, tab_account = st.tabs(
+        ["API設定", "プロンプトテンプレート", "アカウント設定"]
+    )
 
     with tab_api:
         _render_api_settings()
@@ -309,6 +419,9 @@ def main() -> None:
         conn = get_db_connection()
         repo = PromptTemplateRepository(conn)
         _render_template_list(repo)
+
+    with tab_account:
+        _render_account_settings()
 
 
 main()

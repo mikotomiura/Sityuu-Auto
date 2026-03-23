@@ -25,6 +25,11 @@ SESSION_KEY_HISTORY_SEARCH_QUERY = "history_search_query"
 SESSION_KEY_CLIENTS_SELECTED = "clients_selected_client"
 SESSION_KEY_CLIENTS_SEARCH_QUERY = "clients_search_query"
 
+# --- 認証・ユーザー管理用 ---
+SESSION_KEY_AUTH_USER_ID = "auth_user_id"
+SESSION_KEY_AUTH_USERNAME = "auth_username"
+SESSION_KEY_AUTH_ROLE = "auth_role"
+
 # --- テンプレート管理用 ---
 SESSION_KEY_SELECTED_TEMPLATE = "selected_template_id"
 SESSION_KEY_TEMPLATE_EDIT_ID = "template_edit_id"
