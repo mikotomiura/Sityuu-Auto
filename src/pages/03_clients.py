@@ -1,4 +1,9 @@
-"""相談者管理ページ — 相談者の一覧表示・検索・詳細閲覧・情報編集。"""
+"""相談者管理ページ — 相談者の一覧表示・検索・詳細閲覧・情報編集。
+
+Note:
+    本ページは app.py 経由でのみアクセスされる前提。
+    認証は app.py の require_login() で実施済み。
+"""
 
 import logging
 from datetime import date, datetime

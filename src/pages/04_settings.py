@@ -21,6 +21,13 @@ from config import (
 
 _PW_CHANGE_FAIL_KEY = "_pw_change_fail_count"
 _PW_CHANGE_MAX_ATTEMPTS = 5
+
+# --- プロバイダー表示名 ---
+_PROVIDER_LABELS: dict[str, str] = {
+    "gemini": "Google Gemini",
+    "openai": "OpenAI",
+    "anthropic": "Anthropic",
+}
 from db_init import get_db_connection
 from db_service.models import PromptTemplateRecord
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
@@ -91,11 +98,7 @@ def _render_api_settings() -> None:
         "APIプロバイダー",
         options=SUPPORTED_PROVIDERS,
         index=provider_index,
-        format_func=lambda x: {
-            "gemini": "Google Gemini",
-            "openai": "OpenAI",
-            "anthropic": "Anthropic",
-        }.get(x, x),
+        format_func=lambda x: _PROVIDER_LABELS.get(x, x),
     )
 
     # プロバイダー変更時にモデルをデフォルトにリセット＆DBに永続化
@@ -227,14 +230,8 @@ def _render_account_settings() -> None:
         except (json.JSONDecodeError, TypeError):
             current_keys = {}
 
-    provider_labels: dict[str, str] = {
-        "gemini": "Google Gemini",
-        "openai": "OpenAI",
-        "anthropic": "Anthropic",
-    }
-
     for provider in SUPPORTED_PROVIDERS:
-        label = provider_labels.get(provider, provider)
+        label = _PROVIDER_LABELS.get(provider, provider)
         current_value = current_keys.get(provider, "")
         # マスク表示
         display_value = f"****{current_value[-4:]}" if current_value else ""
