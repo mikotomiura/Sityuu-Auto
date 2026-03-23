@@ -5,27 +5,28 @@ import logging
 import os
 
 import streamlit as st
-from dotenv import load_dotenv
 
 from config import (
     API_KEY_ENV_MAP,
     DEFAULT_API_PROVIDER,
     DEFAULT_MODEL,
     GEMINI_FALLBACK_MODELS,
+    PASSWORD_MIN_LENGTH,
     PROVIDER_DEFAULT_MODELS,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
     SESSION_KEY_TEMPLATE_EDIT_ID,
     SUPPORTED_PROVIDERS,
 )
+
+_PW_CHANGE_FAIL_KEY = "_pw_change_fail_count"
+_PW_CHANGE_MAX_ATTEMPTS = 5
 from db_init import get_db_connection
 from db_service.models import PromptTemplateRecord
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
 from db_service.repositories.user_repo import UserRepository, verify_password
 from utils.auth import get_current_user_id
 from utils.exceptions import DatabaseError
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -170,25 +171,42 @@ def _render_account_settings() -> None:
 
     # --- パスワード変更 ---
     st.header("パスワードの変更")
-    with st.form("change_password_form"):
-        current_pw = st.text_input("現在のパスワード", type="password")
-        new_pw = st.text_input("新しいパスワード", type="password")
-        confirm_pw = st.text_input("新しいパスワード（確認）", type="password")
-        pw_submitted = st.form_submit_button("パスワードを変更", use_container_width=True)
 
-        if pw_submitted:
+    pw_fails = st.session_state.get(_PW_CHANGE_FAIL_KEY, 0)
+    pw_locked = pw_fails >= _PW_CHANGE_MAX_ATTEMPTS
+
+    if pw_locked:
+        st.error(
+            f"パスワード変更の試行回数が上限（{_PW_CHANGE_MAX_ATTEMPTS}回）に達しました。"
+            "再度試すにはログインし直してください。"
+        )
+
+    with st.form("change_password_form"):
+        current_pw = st.text_input("現在のパスワード", type="password", disabled=pw_locked)
+        new_pw = st.text_input("新しいパスワード", type="password", disabled=pw_locked)
+        confirm_pw = st.text_input("新しいパスワード（確認）", type="password", disabled=pw_locked)
+        pw_submitted = st.form_submit_button(
+            "パスワードを変更", use_container_width=True, disabled=pw_locked
+        )
+
+        if pw_submitted and not pw_locked:
             if not current_pw or not new_pw or not confirm_pw:
                 st.error("すべてのフィールドを入力してください。")
             elif not verify_password(current_pw, user.password_hash):
+                st.session_state[_PW_CHANGE_FAIL_KEY] = pw_fails + 1
                 st.error("現在のパスワードが正しくありません。")
             elif new_pw != confirm_pw:
                 st.error("新しいパスワードが一致しません。")
-            elif len(new_pw) < 8:
-                st.error("パスワードは8文字以上で設定してください。")
+            elif len(new_pw) < PASSWORD_MIN_LENGTH:
+                st.error(f"パスワードは{PASSWORD_MIN_LENGTH}文字以上で設定してください。")
             else:
                 try:
-                    user_repo.update_password(user_id, new_pw)
-                    st.success("パスワードを変更しました。")
+                    result = user_repo.update_password(user_id, new_pw)
+                    if result:
+                        st.session_state.pop(_PW_CHANGE_FAIL_KEY, None)
+                        st.success("パスワードを変更しました。")
+                    else:
+                        st.error("パスワードの変更に失敗しました。")
                 except DatabaseError:
                     st.error("パスワードの変更に失敗しました。")
 

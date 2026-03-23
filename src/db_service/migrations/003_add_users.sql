@@ -11,5 +11,3 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);

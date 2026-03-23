@@ -29,6 +29,10 @@ SESSION_KEY_CLIENTS_SEARCH_QUERY = "clients_search_query"
 SESSION_KEY_AUTH_USER_ID = "auth_user_id"
 SESSION_KEY_AUTH_USERNAME = "auth_username"
 SESSION_KEY_AUTH_ROLE = "auth_role"
+SESSION_KEY_AUTH_FAIL_COUNT = "auth_fail_count"
+
+# --- パスワードポリシー ---
+PASSWORD_MIN_LENGTH = 8
 
 # --- テンプレート管理用 ---
 SESSION_KEY_SELECTED_TEMPLATE = "selected_template_id"

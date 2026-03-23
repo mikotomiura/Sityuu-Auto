@@ -8,12 +8,14 @@ Usage:
     python scripts/create_user.py <username> --role admin
     python scripts/create_user.py <username> --password mypassword
     python scripts/create_user.py <username> --db-path data/fortune.sqlite3
+
+Note:
+    --password オプションを使用するとシェル履歴にパスワードが残ります。
+    セキュリティ上、ランダム生成（--password 未指定）を推奨します。
 """
 
 import argparse
 import logging
-import secrets
-import string
 import sys
 from pathlib import Path
 
@@ -21,23 +23,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import DB_PATH  # noqa: E402
+from src.config import DB_PATH, PASSWORD_MIN_LENGTH  # noqa: E402
 from src.db_service.database import create_connection, initialize_database  # noqa: E402
-from src.db_service.repositories.user_repo import UserRepository  # noqa: E402
+from src.db_service.repositories.user_repo import (  # noqa: E402
+    UserRepository,
+    generate_random_password,
+)
 from src.utils.exceptions import DatabaseError  # noqa: E402
-
-
-def _generate_password(length: int = 12) -> str:
-    """ランダムな初期パスワードを生成する。
-
-    Args:
-        length: パスワード文字数。
-
-    Returns:
-        ランダムパスワード文字列。
-    """
-    alphabet = string.ascii_letters + string.digits
-    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def main() -> None:
@@ -72,7 +64,11 @@ def main() -> None:
 
     logger = logging.getLogger(__name__)
 
-    password = args.password or _generate_password()
+    password = args.password or generate_random_password()
+
+    if len(password) < PASSWORD_MIN_LENGTH:
+        logger.error("パスワードは%d文字以上で指定してください。", PASSWORD_MIN_LENGTH)
+        sys.exit(1)
 
     try:
         conn = create_connection(args.db_path)

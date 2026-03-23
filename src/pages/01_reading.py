@@ -4,7 +4,6 @@ import logging
 import os
 
 import streamlit as st
-from dotenv import load_dotenv
 
 from ai_service.client import LLMClient, create_client
 from ai_service.prompt_builder import build_listening_hint_prompt, build_reading_prompt
@@ -45,8 +44,6 @@ from utils.exceptions import (
     DatabaseError,
     FortuneCalculationError,
 )
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 

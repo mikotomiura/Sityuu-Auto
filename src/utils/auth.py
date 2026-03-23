@@ -12,6 +12,7 @@ import streamlit as st
 from config import (
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
+    SESSION_KEY_AUTH_FAIL_COUNT,
     SESSION_KEY_AUTH_ROLE,
     SESSION_KEY_AUTH_USER_ID,
     SESSION_KEY_AUTH_USERNAME,
@@ -82,15 +83,14 @@ def _login(user_repo: UserRepository, username: str, password: str) -> bool:
             st.session_state[SESSION_KEY_API_PROVIDER] = user.preferred_provider
         if user.preferred_model:
             st.session_state[SESSION_KEY_API_MODEL] = user.preferred_model
-        st.session_state.pop("_auth_fail_count", None)
+        st.session_state.pop(SESSION_KEY_AUTH_FAIL_COUNT, None)
         logger.info("ログイン成功: username=%s", username)
         return True
     except AuthenticationError:
         logger.warning("ログイン失敗: username=%s", username)
         # ブルートフォース対策: 失敗回数に応じた遅延
-        fail_key = "_auth_fail_count"
-        fails = st.session_state.get(fail_key, 0) + 1
-        st.session_state[fail_key] = fails
+        fails = st.session_state.get(SESSION_KEY_AUTH_FAIL_COUNT, 0) + 1
+        st.session_state[SESSION_KEY_AUTH_FAIL_COUNT] = fails
         delay = min(fails * 1.0, 5.0)  # 最大5秒
         time.sleep(delay)
         return False

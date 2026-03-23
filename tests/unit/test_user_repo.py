@@ -8,6 +8,7 @@ import pytest
 from db_service.database import initialize_database
 from db_service.repositories.user_repo import (
     UserRepository,
+    generate_random_password,
     hash_password,
     verify_password,
 )
@@ -234,3 +235,80 @@ class TestUserRepositoryCount:
         user_repo.create("user1", "pw1")
         user_repo.create("user2", "pw2")
         assert user_repo.count() == 2
+
+
+class TestGenerateRandomPassword:
+    """パスワード生成関数のテスト。"""
+
+    def test_default_length(self) -> None:
+        """デフォルト12文字のパスワードが生成されること。"""
+        pw = generate_random_password()
+        assert len(pw) == 12
+
+    def test_custom_length(self) -> None:
+        """指定した長さのパスワードが生成されること。"""
+        pw = generate_random_password(20)
+        assert len(pw) == 20
+
+    def test_alphanum_only(self) -> None:
+        """英数字のみで構成されること。"""
+        pw = generate_random_password(100)
+        assert pw.isalnum()
+
+    def test_randomness(self) -> None:
+        """2回の生成で異なる値が返ること。"""
+        pw1 = generate_random_password()
+        pw2 = generate_random_password()
+        assert pw1 != pw2
+
+
+class TestUserRepositoryEdgeCases:
+    """エッジケースのテスト。"""
+
+    def test_update_password_returns_false_for_nonexistent_user(
+        self, user_repo: UserRepository
+    ) -> None:
+        """存在しないユーザーIDでFalseが返ること。"""
+        result = user_repo.update_password("nonexistent-id", "newpassword")
+        assert result is False
+
+    def test_update_api_key_returns_false_for_nonexistent_user(
+        self, user_repo: UserRepository
+    ) -> None:
+        """存在しないユーザーIDでFalseが返ること。"""
+        result = user_repo.update_api_key("nonexistent-id", "gemini", "test-key")
+        assert result is False
+
+    def test_get_api_key_with_malformed_json_returns_none(
+        self, db_conn: sqlite3.Connection, user_repo: UserRepository
+    ) -> None:
+        """壊れたJSONがDBにある場合にNoneが返ること。"""
+        user_id = user_repo.create("testuser", "password123")
+        # 直接DBに壊れたJSONを書き込む
+        db_conn.execute(
+            "UPDATE users SET api_keys_json = ? WHERE id = ?",
+            ("{broken json", user_id),
+        )
+        db_conn.commit()
+        assert user_repo.get_api_key(user_id, "gemini") is None
+
+    def test_update_api_key_with_whitespace_only_deletes_key(
+        self, user_repo: UserRepository
+    ) -> None:
+        """空白のみのAPIキーが保存されず削除されること。"""
+        user_id = user_repo.create("testuser", "password123")
+        user_repo.update_api_key(user_id, "gemini", "real-key")
+        user_repo.update_api_key(user_id, "gemini", "   ")
+        assert user_repo.get_api_key(user_id, "gemini") is None
+
+    def test_create_user_with_sql_injection_attempt(
+        self, user_repo: UserRepository
+    ) -> None:
+        """SQLインジェクション的な入力がパラメータバインディングで無害化されること。"""
+        malicious = "'; DROP TABLE users; --"
+        user_id = user_repo.create(malicious, "password123")
+        user = user_repo.find_by_username(malicious)
+        assert user is not None
+        assert user.username == malicious
+        # usersテーブルが存在し続けることを確認
+        assert user_repo.count() >= 1

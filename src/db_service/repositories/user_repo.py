@@ -2,7 +2,9 @@
 
 import json
 import logging
+import secrets
 import sqlite3
+import string
 import uuid
 from datetime import datetime
 
@@ -34,6 +36,19 @@ def _row_to_user_record(row: sqlite3.Row) -> UserRecord:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
+
+
+def generate_random_password(length: int = 12) -> str:
+    """ランダムパスワードを生成する。
+
+    Args:
+        length: パスワード文字数。
+
+    Returns:
+        英数字で構成されたランダムパスワード文字列。
+    """
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def hash_password(password: str) -> str:
@@ -267,8 +282,9 @@ class UserRepository:
                 keys = {}
 
         # キーの追加・更新・削除
-        if api_key:
-            keys[provider] = api_key
+        stripped_key = api_key.strip()
+        if stripped_key:
+            keys[provider] = stripped_key
         else:
             keys.pop(provider, None)
 
