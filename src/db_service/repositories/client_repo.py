@@ -174,6 +174,23 @@ class ClientRepository:
             logger.error("セッション数の取得に失敗: %s", e)
             raise DatabaseError("セッション数の取得に失敗しました") from e
 
+    def count(self) -> int:
+        """相談者数を取得する。
+
+        Returns:
+            相談者数。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute("SELECT COUNT(*) as cnt FROM clients")
+            row = cursor.fetchone()
+            return row["cnt"] if row else 0
+        except sqlite3.Error as e:
+            logger.error("相談者数の取得に失敗: %s", e)
+            raise DatabaseError("相談者数の取得に失敗しました") from e
+
     def search_by_name(self, query: str) -> list[ClientRecord]:
         """名前で相談者を検索する。
 

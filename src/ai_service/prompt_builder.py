@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 from string import Template
 
+from functools import lru_cache
+
 from ai_service.pii_sanitizer import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
@@ -15,8 +17,9 @@ logger = logging.getLogger(__name__)
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
+@lru_cache(maxsize=4)
 def _load_template(filename: str) -> str:
-    """テンプレートファイルを読み込む。
+    """テンプレートファイルを読み込む（キャッシュ付き）。
 
     Args:
         filename: テンプレートファイル名。

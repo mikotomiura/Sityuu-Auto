@@ -214,6 +214,23 @@ class SessionRepository:
             logger.error("セッション一覧の取得に失敗: %s", e)
             raise DatabaseError("セッション一覧の取得に失敗しました") from e
 
+    def count(self) -> int:
+        """セッション数を取得する。
+
+        Returns:
+            セッション数。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute("SELECT COUNT(*) as cnt FROM sessions")
+            row = cursor.fetchone()
+            return row["cnt"] if row else 0
+        except sqlite3.Error as e:
+            logger.error("セッション数の取得に失敗: %s", e)
+            raise DatabaseError("セッション数の取得に失敗しました") from e
+
     def find_all_with_client_name(
         self,
         limit: int = 50,

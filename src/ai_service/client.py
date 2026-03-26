@@ -51,13 +51,13 @@ class OpenAIClient(LLMClient):
     def __init__(self, api_key: str, model: str, timeout: int = API_TIMEOUT_SECONDS) -> None:
         if not api_key:
             raise AIServiceConfigError("OpenAI API キーが設定されていません")
-        self._api_key = api_key
+        self._client = openai.OpenAI(api_key=api_key)
         self._model = model
         self._timeout = timeout
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """OpenAI API でテキスト生成（リトライ付き）。"""
-        client = openai.OpenAI(api_key=self._api_key)
+        client = self._client
         last_error: Exception | None = None
 
         for attempt in range(API_MAX_RETRIES + 1):
@@ -110,13 +110,13 @@ class AnthropicClient(LLMClient):
     def __init__(self, api_key: str, model: str, timeout: int = API_TIMEOUT_SECONDS) -> None:
         if not api_key:
             raise AIServiceConfigError("Anthropic API キーが設定されていません")
-        self._api_key = api_key
+        self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
         self._timeout = timeout
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Anthropic API でテキスト生成（リトライ付き）。"""
-        client = anthropic.Anthropic(api_key=self._api_key)
+        client = self._client
         last_error: Exception | None = None
 
         for attempt in range(API_MAX_RETRIES + 1):
@@ -184,7 +184,10 @@ class GeminiClient(LLMClient):
             raise AIServiceConfigError("Gemini API キーが設定されていません")
         if not models:
             raise AIServiceConfigError("Gemini のモデルが1つも指定されていません")
-        self._api_key = api_key
+        self._client = genai.Client(
+            api_key=api_key,
+            http_options=genai_types.HttpOptions(timeout=timeout * 1000),
+        )
         self._models = models
         self._timeout = timeout
 
@@ -194,10 +197,7 @@ class GeminiClient(LLMClient):
         候補モデルを先頭から順に試行し、利用不可やレート制限の場合は
         次のモデルへフォールバックする。認証エラーはフォールバックせず即座に送出する。
         """
-        client = genai.Client(
-            api_key=self._api_key,
-            http_options=genai_types.HttpOptions(timeout=self._timeout * 1000),
-        )
+        client = self._client
 
         last_error: Exception | None = None
 

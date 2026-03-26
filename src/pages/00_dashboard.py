@@ -47,14 +47,12 @@ def _render_stats(
         session_repo: セッションリポジトリ。
     """
     try:
-        clients = client_repo.find_all(limit=9999)
-        client_count = len(clients)
+        client_count = client_repo.count()
     except DatabaseError:
         client_count = 0
 
     try:
-        sessions = session_repo.find_all(limit=9999)
-        session_count = len(sessions)
+        session_count = session_repo.count()
     except DatabaseError:
         session_count = 0
 
