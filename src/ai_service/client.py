@@ -250,8 +250,6 @@ class GeminiClient(LLMClient):
                     model,
                     type(e).__name__,
                 )
-                wait = API_RETRY_BASE_WAIT * (2 ** self._models.index(model))
-                time.sleep(wait)
                 continue
 
         # すべてのモデルが失敗した場合

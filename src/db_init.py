@@ -2,10 +2,14 @@
 
 DB層（db_service）にStreamlit依存を持ち込まないための薄いラッパー。
 UI層のページファイルからimportして使用する。
+
+各Streamlitセッション（スレッド）に独立したDB接続を提供し、
+SQLiteの同時アクセスによるロック競合を軽減する。
 """
 
 import logging
 import sqlite3
+import threading
 
 import streamlit as st
 
@@ -15,6 +19,8 @@ from db_service.repositories.prompt_template_repo import PromptTemplateRepositor
 from db_service.repositories.user_repo import UserRepository, generate_random_password
 
 logger = logging.getLogger(__name__)
+
+_thread_local = threading.local()
 
 
 def _seed_default_templates(conn: sqlite3.Connection) -> None:
@@ -100,21 +106,45 @@ def _seed_default_admin(conn: sqlite3.Connection) -> None:
 
 
 @st.cache_resource
-def get_db_connection() -> sqlite3.Connection:
-    """DB接続を取得する（Streamlitセッション間で共有）。
-
-    初回呼び出し時にDB接続を作成し、マイグレーションを実行する。
-    テンプレートが未登録の場合は初期テンプレートを登録する。
-    以降の呼び出しではキャッシュされた接続を返す。
+def _initialize_db() -> bool:
+    """DB初期化を1度だけ実行する（マイグレーション・初期データ投入）。
 
     Returns:
-        初期化済みのSQLiteコネクション。
-
-    Raises:
-        DatabaseError: DB接続またはマイグレーションに失敗した場合。
+        初期化完了なら True。
     """
     conn = create_connection(DB_PATH)
     initialize_database(conn)
     _seed_default_templates(conn)
     _seed_default_admin(conn)
+    conn.close()
+    return True
+
+
+def get_db_connection() -> sqlite3.Connection:
+    """スレッドローカルなDB接続を取得する。
+
+    各Streamlitセッション（スレッド）に独立したDB接続を提供する。
+    同一スレッド内では接続を再利用し、異なるスレッドでは別々の接続を使用する。
+    これによりSQLiteの同時アクセスによるロック競合を軽減する。
+
+    初回呼び出し時にマイグレーションと初期データ投入を実行する（1度のみ）。
+
+    Returns:
+        スレッドローカルなSQLiteコネクション。
+
+    Raises:
+        DatabaseError: DB接続またはマイグレーションに失敗した場合。
+    """
+    _initialize_db()
+
+    conn = getattr(_thread_local, "conn", None)
+    if conn is not None:
+        try:
+            conn.execute("SELECT 1")
+            return conn
+        except sqlite3.Error:
+            conn = None
+
+    conn = create_connection(DB_PATH)
+    _thread_local.conn = conn
     return conn
