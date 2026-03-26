@@ -27,6 +27,7 @@ from config import (
     SESSION_KEY_FORM_VERSION,
     SESSION_KEY_FORTUNE_RESULT,
     SESSION_KEY_LISTENING_HINTS,
+    SESSION_KEY_PII_ANONYMIZE,
     SESSION_KEY_SELECTED_TEMPLATE,
 )
 from db_init import get_db_connection
@@ -313,6 +314,7 @@ def main() -> None:
         client_name_kana = st.session_state.get(SESSION_KEY_CLIENT_NAME_KANA, "")
 
         # --- 鑑定レポート生成 ---
+        anonymize = st.session_state.get(SESSION_KEY_PII_ANONYMIZE, True)
         try:
             with st.spinner("AIが鑑定レポートを生成中..."):
                 system_prompt, user_prompt = build_reading_prompt(
@@ -321,6 +323,7 @@ def main() -> None:
                     name=client_name or "",
                     name_kana=client_name_kana or "",
                     custom_system_prompt=custom_system_prompt,
+                    anonymize=anonymize,
                 )
                 ai_text = llm.generate(system_prompt, user_prompt)
                 st.session_state[SESSION_KEY_AI_RESPONSE] = ai_text

@@ -15,6 +15,7 @@ from config import (
     PROVIDER_DEFAULT_MODELS,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
+    SESSION_KEY_PII_ANONYMIZE,
     SESSION_KEY_TEMPLATE_EDIT_ID,
     SUPPORTED_PROVIDERS,
 )
@@ -46,6 +47,8 @@ def _initialize_state() -> None:
         st.session_state[SESSION_KEY_API_PROVIDER] = DEFAULT_API_PROVIDER
     if SESSION_KEY_API_MODEL not in st.session_state:
         st.session_state[SESSION_KEY_API_MODEL] = DEFAULT_MODEL
+    if SESSION_KEY_PII_ANONYMIZE not in st.session_state:
+        st.session_state[SESSION_KEY_PII_ANONYMIZE] = True
     if SESSION_KEY_TEMPLATE_EDIT_ID not in st.session_state:
         st.session_state[SESSION_KEY_TEMPLATE_EDIT_ID] = None
 
@@ -322,6 +325,39 @@ def _render_account_settings() -> None:
                     st.error("パスワードの変更に失敗しました。")
 
 
+def _render_privacy_settings() -> None:
+    """プライバシー設定セクションを表示する。"""
+    st.header("個人情報保護（PII匿名化）")
+    st.caption(
+        "AI鑑定レポート生成時に、相談者の名前・フリガナを匿名化してからLLM APIに送信します。"
+        "命式データと悩みテキストはAIの鑑定に必要なためそのまま送信されます。"
+    )
+
+    current_value = st.session_state.get(SESSION_KEY_PII_ANONYMIZE, True)
+    anonymize = st.toggle(
+        "名前・フリガナを匿名化してAPI送信",
+        value=current_value,
+        help=(
+            "ONの場合: 名前は「相談者様」に、フリガナは省略されてAPIに送信されます。"
+            "名前を使ったハイブリッド鑑定（漢字の意味・音韻分析）はスキップされます。\n\n"
+            "OFFの場合: 名前・フリガナがそのままAPIに送信され、"
+            "漢字の意味や音韻を含む詳細な鑑定が可能になります。"
+        ),
+    )
+    st.session_state[SESSION_KEY_PII_ANONYMIZE] = anonymize
+
+    if anonymize:
+        st.info(
+            "匿名化が有効です。名前は「相談者様」に置換されてAPIに送信されます。"
+            "名前×命式のハイブリッド鑑定（漢字の意味・音韻分析）はスキップされます。"
+        )
+    else:
+        st.warning(
+            "匿名化が無効です。相談者の名前・フリガナがそのままLLM APIに送信されます。"
+            "名前を使った詳細な鑑定が利用できますが、個人情報が外部に送信される点にご注意ください。"
+        )
+
+
 def _render_template_list(repo: PromptTemplateRepository) -> None:
     """テンプレート一覧と操作UIを表示する。
 
@@ -524,12 +560,15 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    tab_api, tab_template, tab_account = st.tabs(
-        ["API設定", "プロンプトテンプレート", "アカウント設定"]
+    tab_api, tab_privacy, tab_template, tab_account = st.tabs(
+        ["API設定", "プライバシー", "プロンプトテンプレート", "アカウント設定"]
     )
 
     with tab_api:
         _render_api_settings()
+
+    with tab_privacy:
+        _render_privacy_settings()
 
     with tab_template:
         conn = get_db_connection()

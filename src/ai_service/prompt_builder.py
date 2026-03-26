@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 from string import Template
 
+from ai_service.pii_sanitizer import sanitize_for_prompt
+
 logger = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -35,6 +37,7 @@ def build_reading_prompt(
     name: str = "",
     name_kana: str = "",
     custom_system_prompt: str | None = None,
+    anonymize: bool = True,
 ) -> tuple[str, str]:
     """鑑定テキスト生成用のプロンプトを構築する。
 
@@ -45,6 +48,7 @@ def build_reading_prompt(
         name_kana: 相談者のフリガナ。音韻鑑定に使用。
         custom_system_prompt: DBから取得したカスタムシステムプロンプト。
             指定された場合はデフォルトのシステムプロンプトを置き換える。
+        anonymize: Trueの場合、名前・フリガナを匿名化してからAPIに送信する。
 
     Returns:
         (system_prompt, user_prompt) のタプル。
@@ -53,6 +57,9 @@ def build_reading_prompt(
     """
     template_text = _load_template("reading_base.md")
     template = Template(template_text)
+
+    if anonymize:
+        name, name_kana = sanitize_for_prompt(name, name_kana)
 
     if custom_system_prompt is not None:
         system_prompt = custom_system_prompt

@@ -44,6 +44,9 @@ SESSION_TOKEN_LENGTH = 32
 INVITATION_TOKEN_QUERY_PARAM = "token"
 INVITATION_DEFAULT_EXPIRY_HOURS = 72
 
+# --- プライバシー設定用 ---
+SESSION_KEY_PII_ANONYMIZE = "pii_anonymize"
+
 # --- テンプレート管理用 ---
 SESSION_KEY_SELECTED_TEMPLATE = "selected_template_id"
 SESSION_KEY_TEMPLATE_EDIT_ID = "template_edit_id"
