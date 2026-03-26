@@ -80,12 +80,13 @@ st.sidebar.markdown(
 )
 st.sidebar.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
 
+dashboard_page = st.Page("pages/00_dashboard.py", title="ダッシュボード", icon="\U0001f3e0", default=True)
 reading_page = st.Page("pages/01_reading.py", title="鑑定", icon="\u2728")
 history_page = st.Page("pages/02_history.py", title="鑑定履歴", icon="\U0001f4cb")
 clients_page = st.Page("pages/03_clients.py", title="相談者管理", icon="\U0001f465")
 settings_page = st.Page("pages/04_settings.py", title="設定", icon="\u2699\ufe0f")
 
-pages: list[st.Page] = [reading_page, history_page, clients_page, settings_page]
+pages: list[st.Page] = [dashboard_page, reading_page, history_page, clients_page, settings_page]
 
 # 管理者ロールの場合のみ管理者ページを追加
 if st.session_state.get(SESSION_KEY_AUTH_ROLE) == "admin":
