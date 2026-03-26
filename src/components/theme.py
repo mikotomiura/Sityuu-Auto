@@ -33,7 +33,11 @@ _CUSTOM_CSS = f"""
     background: {_BG_PRIMARY} !important;
     border-bottom: 1px solid {_BORDER_SUBTLE} !important;
 }}
-/* Note: stToolbar/stAppToolbar は非表示にしない（サイドバーの親要素である可能性がある） */
+/* Note: stToolbar 自体は非表示にしない（レイアウト計算に影響しサイドバーが消える） */
+/* ツールバー内のアクションボタン（デプロイ・メニュー等）のみ非表示にする */
+[data-testid="stToolbarActions"] {{
+    display: none !important;
+}}
 [data-testid="stDecoration"] {{
     display: none !important;
 }}
