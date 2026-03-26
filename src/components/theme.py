@@ -27,11 +27,10 @@ _CUSTOM_CSS = f"""
     color: {_TEXT_PRIMARY};
 }}
 
-/* ===== Streamlit ツールバー/デコレーション非表示 ===== */
-/* Note: stHeader 自体は非表示にしない（サイドバートグルボタンが含まれるため） */
+/* ===== Streamlit ヘッダー（サイドバートグル保持） ===== */
 header[data-testid="stHeader"] {{
-    background: transparent !important;
-    border-bottom: none !important;
+    background: {_BG_PRIMARY} !important;
+    border-bottom: 1px solid {_BORDER_SUBTLE} !important;
 }}
 div[data-testid="stToolbar"] {{
     display: none !important;
@@ -41,6 +40,19 @@ div[data-testid="stDecoration"] {{
 }}
 div[data-testid="stStatusWidget"] {{
     display: none !important;
+}}
+
+/* ===== サイドバートグル・展開ボタンのダークテーマ対応 ===== */
+button[data-testid="stSidebarNavToggle"] {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+div[data-testid="stSidebarCollapsedControl"] {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+div[data-testid="stSidebarCollapsedControl"] button {{
+    color: {_TEXT_PRIMARY} !important;
+    background-color: {_BG_CARD} !important;
+    border: 1px solid {_BORDER_SUBTLE} !important;
 }}
 
 

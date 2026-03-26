@@ -113,11 +113,24 @@ def render_login_form(user_repo: UserRepository) -> None:
     inject_autocomplete_off()
 
     # サイドバーを視覚的に非表示にする
+    # Note: display:none はStreamlitの内部サイドバー状態を破壊するため、
+    #       visibility + 幅縮小で非表示化しつつDOM状態を保持する
     st.markdown(
         """
         <style>
-        section[data-testid="stSidebar"] { display: none; }
-        div[data-testid="stSidebarCollapsedControl"] { display: none; }
+        section[data-testid="stSidebar"] {
+            visibility: hidden !important;
+            width: 0px !important;
+            min-width: 0px !important;
+            max-width: 0px !important;
+            overflow: hidden !important;
+        }
+        div[data-testid="stSidebarCollapsedControl"] {
+            visibility: hidden !important;
+        }
+        header[data-testid="stHeader"] {
+            visibility: hidden !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -186,12 +199,23 @@ def _render_registration_form(
     """
     inject_autocomplete_off()
 
-    # サイドバーを非表示
+    # サイドバーを非表示（登録フォーム）
     st.markdown(
         """
         <style>
-        section[data-testid="stSidebar"] { display: none; }
-        div[data-testid="stSidebarCollapsedControl"] { display: none; }
+        section[data-testid="stSidebar"] {
+            visibility: hidden !important;
+            width: 0px !important;
+            min-width: 0px !important;
+            max-width: 0px !important;
+            overflow: hidden !important;
+        }
+        div[data-testid="stSidebarCollapsedControl"] {
+            visibility: hidden !important;
+        }
+        header[data-testid="stHeader"] {
+            visibility: hidden !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,

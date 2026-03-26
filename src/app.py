@@ -34,7 +34,27 @@ user_repo = UserRepository(conn)
 invitation_repo = InvitationRepository(conn)
 require_login(user_repo, invitation_repo)
 
-# --- 認証済み: サイドバーとナビゲーション ---
+# --- 認証済み: サイドバー表示を保証 ---
+st.markdown(
+    """
+    <style>
+    section[data-testid="stSidebar"] {
+        visibility: visible !important;
+        min-width: 245px !important;
+        opacity: 1 !important;
+    }
+    div[data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important;
+    }
+    header[data-testid="stHeader"] {
+        visibility: visible !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- サイドバーとナビゲーション ---
 st.sidebar.markdown(
     '<div class="sidebar-brand"><div class="sidebar-brand-icon">\U0001f52e</div></div>',
     unsafe_allow_html=True,
