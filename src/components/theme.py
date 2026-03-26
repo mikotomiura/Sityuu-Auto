@@ -27,6 +27,18 @@ _CUSTOM_CSS = f"""
     color: {_TEXT_PRIMARY};
 }}
 
+/* ===== 非表示iframeコンテナ（autocomplete無効化JS用）===== */
+iframe[height="0"] {{
+    display: none !important;
+}}
+iframe[height="0"] + div,
+div:has(> iframe[height="0"]) {{
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}}
+
 /* ===== サイドバー ===== */
 section[data-testid="stSidebar"] {{
     background: linear-gradient(180deg, #0c1035 0%, #151a48 100%);
