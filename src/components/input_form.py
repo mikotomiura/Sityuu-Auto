@@ -55,6 +55,7 @@ def render_client_input_form() -> ClientInputData | None:
                 "お名前（仮名可）",
                 max_chars=50,
                 placeholder="例: 山田太郎",
+                autocomplete="off",
             )
         with col_kana:
             name_kana = st.text_input(
@@ -62,6 +63,7 @@ def render_client_input_form() -> ClientInputData | None:
                 max_chars=50,
                 placeholder="例: ヤマダ タロウ",
                 help="名前の音韻（響き）を鑑定に活用します。",
+                autocomplete="off",
             )
         with col_gender:
             gender = st.selectbox(

@@ -6,6 +6,7 @@ Streamlit の st.session_state を使用してログイン状態を管理する�
 
 import logging
 import time
+import uuid
 
 import streamlit as st
 
@@ -133,9 +134,25 @@ def render_login_form(user_repo: UserRepository) -> None:
             unsafe_allow_html=True,
         )
 
-        with st.form("login_form"):
-            username = st.text_input("ユーザー名", placeholder="username")
-            password = st.text_input("パスワード", type="password", placeholder="password")
+        # フォームキーにUUIDを含め、ブラウザが過去入力と紐付けるのを防ぐ
+        if "_login_form_id" not in st.session_state:
+            st.session_state["_login_form_id"] = uuid.uuid4().hex[:8]
+        form_id = st.session_state["_login_form_id"]
+
+        with st.form(f"login_form_{form_id}"):
+            username = st.text_input(
+                "ユーザー名",
+                placeholder="username",
+                key=f"login_user_{form_id}",
+                autocomplete="off",
+            )
+            password = st.text_input(
+                "パスワード",
+                type="password",
+                placeholder="password",
+                key=f"login_pass_{form_id}",
+                autocomplete="new-password",
+            )
             submitted = st.form_submit_button("ログイン", type="primary", use_container_width=True)
 
             if submitted:

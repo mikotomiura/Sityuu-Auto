@@ -53,6 +53,7 @@ def _render_list_view(
         value=st.session_state[SESSION_KEY_CLIENTS_SEARCH_QUERY],
         placeholder="名前を入力...",
         key="clients_search_input",
+        autocomplete="off",
     )
     st.session_state[SESSION_KEY_CLIENTS_SEARCH_QUERY] = search_query
 
@@ -170,12 +171,14 @@ def _render_detail_view(
             value=current_name,
             max_chars=50,
             placeholder="例: 山田 太郎",
+            autocomplete="off",
         )
         new_kana = col_kana.text_input(
             "フリガナ",
             value=current_kana,
             max_chars=50,
             placeholder="例: ヤマダ タロウ",
+            autocomplete="off",
         )
 
         # 生年月日・出生時間・性別

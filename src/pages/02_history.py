@@ -52,6 +52,7 @@ def _render_list_view(session_repo: SessionRepository) -> None:
         value=st.session_state[SESSION_KEY_HISTORY_SEARCH_QUERY],
         placeholder="名前を入力...",
         key="history_search_input",
+        autocomplete="off",
     )
     st.session_state[SESSION_KEY_HISTORY_SEARCH_QUERY] = search_query
 

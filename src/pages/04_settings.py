@@ -135,6 +135,7 @@ def _render_api_settings() -> None:
         value=current_model,
         placeholder=default_model,
         help=f"デフォルト: {default_model}",
+        autocomplete="off",
     )
 
     if model_input != current_model:
@@ -186,9 +187,24 @@ def _render_account_settings() -> None:
         )
 
     with st.form("change_password_form"):
-        current_pw = st.text_input("現在のパスワード", type="password", disabled=pw_locked)
-        new_pw = st.text_input("新しいパスワード", type="password", disabled=pw_locked)
-        confirm_pw = st.text_input("新しいパスワード（確認）", type="password", disabled=pw_locked)
+        current_pw = st.text_input(
+            "現在のパスワード",
+            type="password",
+            disabled=pw_locked,
+            autocomplete="off",
+        )
+        new_pw = st.text_input(
+            "新しいパスワード",
+            type="password",
+            disabled=pw_locked,
+            autocomplete="new-password",
+        )
+        confirm_pw = st.text_input(
+            "新しいパスワード（確認）",
+            type="password",
+            disabled=pw_locked,
+            autocomplete="new-password",
+        )
         pw_submitted = st.form_submit_button(
             "パスワードを変更", use_container_width=True, disabled=pw_locked
         )
@@ -253,6 +269,7 @@ def _render_account_settings() -> None:
                 type="password",
                 placeholder="新しいAPIキーを入力（空欄で削除）",
                 key=f"api_key_input_{provider}",
+                autocomplete="off",
             )
             key_submitted = st.form_submit_button("保存", use_container_width=True)
 
@@ -362,8 +379,16 @@ def _render_create_form(repo: PromptTemplateRepository) -> None:
         repo: プロンプトテンプレートリポジトリ。
     """
     with st.form("create_template_form"):
-        name = st.text_input("テンプレート名", placeholder="例: 恋愛相談向けテンプレート")
-        description = st.text_input("説明（任意）", placeholder="このテンプレートの用途")
+        name = st.text_input(
+            "テンプレート名",
+            placeholder="例: 恋愛相談向けテンプレート",
+            autocomplete="off",
+        )
+        description = st.text_input(
+            "説明（任意）",
+            placeholder="このテンプレートの用途",
+            autocomplete="off",
+        )
         system_prompt = st.text_area(
             "システムプロンプト",
             height=200,
@@ -403,8 +428,8 @@ def _render_edit_form(
         tmpl: 編集対象のテンプレートレコード。
     """
     with st.form(f"edit_form_{tmpl.id}"):
-        name = st.text_input("テンプレート名", value=tmpl.name)
-        description = st.text_input("説明", value=tmpl.description or "")
+        name = st.text_input("テンプレート名", value=tmpl.name, autocomplete="off")
+        description = st.text_input("説明", value=tmpl.description or "", autocomplete="off")
         system_prompt = st.text_area(
             "システムプロンプト",
             value=tmpl.system_prompt,
