@@ -238,14 +238,16 @@ class UserRepository:
 
         Args:
             user_id: ユーザーの UUID。
-            display_name: 新しい表示名。
+            display_name: 新しい表示名（50文字以内）。
 
         Returns:
             更新成功なら True。
 
         Raises:
-            DatabaseError: 更新に失敗した場合。
+            DatabaseError: 更新に失敗した場合、または50文字超の場合。
         """
+        if len(display_name.strip()) > 50:
+            raise DatabaseError("表示名は50文字以内で入力してください")
         now = datetime.now().isoformat()
 
         try:
