@@ -262,6 +262,91 @@ class TestGenerateRandomPassword:
         assert pw1 != pw2
 
 
+class TestUserRepositoryDelete:
+    """ユーザー削除のテスト。"""
+
+    def test_delete_user(self, user_repo: UserRepository) -> None:
+        """ユーザーを削除できること。"""
+        user_id = user_repo.create("testuser", "password123")
+        result = user_repo.delete(user_id)
+        assert result is True
+        assert user_repo.find_by_id(user_id) is None
+
+    def test_delete_nonexistent_user(self, user_repo: UserRepository) -> None:
+        """存在しないユーザーIDでFalseが返ること。"""
+        result = user_repo.delete("nonexistent-id")
+        assert result is False
+
+    def test_delete_user_with_auth_sessions(
+        self, db_conn: sqlite3.Connection, user_repo: UserRepository
+    ) -> None:
+        """認証セッションがあるユーザーを削除できること。"""
+        user_id = user_repo.create("testuser", "password123")
+        # 認証セッションを作成
+        db_conn.execute(
+            "INSERT INTO auth_sessions (id, user_id, token, expires_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("sess-1", user_id, "token-abc", "2099-01-01T00:00:00", "2026-01-01T00:00:00"),
+        )
+        db_conn.commit()
+
+        result = user_repo.delete(user_id)
+        assert result is True
+        assert user_repo.find_by_id(user_id) is None
+
+    def test_delete_user_with_invitation_tokens_created(
+        self, db_conn: sqlite3.Connection, user_repo: UserRepository
+    ) -> None:
+        """招待リンクを作成したユーザーを削除できること。"""
+        user_id = user_repo.create("admin1", "password123", role="admin")
+        # 招待トークンを作成
+        db_conn.execute(
+            "INSERT INTO invitation_tokens (id, token, created_by, expires_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("inv-1", "tok-123", user_id, "2099-01-01T00:00:00", "2026-01-01T00:00:00"),
+        )
+        db_conn.commit()
+
+        result = user_repo.delete(user_id)
+        assert result is True
+        assert user_repo.find_by_id(user_id) is None
+
+    def test_delete_user_with_invitation_used_by(
+        self, db_conn: sqlite3.Connection, user_repo: UserRepository
+    ) -> None:
+        """招待リンクを使用したユーザーを削除できること。"""
+        admin_id = user_repo.create("admin1", "password123", role="admin")
+        user_id = user_repo.create("invited_user", "password123")
+        # 招待トークン（adminが作成、user_idが使用）
+        db_conn.execute(
+            "INSERT INTO invitation_tokens "
+            "(id, token, created_by, used_by, expires_at, used_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                "inv-1", "tok-123", admin_id, user_id,
+                "2099-01-01T00:00:00", "2026-01-01T00:00:00", "2026-01-01T00:00:00",
+            ),
+        )
+        db_conn.commit()
+
+        result = user_repo.delete(user_id)
+        assert result is True
+        assert user_repo.find_by_id(user_id) is None
+        # 招待トークンのused_byがNULLになっていること
+        row = db_conn.execute(
+            "SELECT used_by FROM invitation_tokens WHERE id = ?", ("inv-1",)
+        ).fetchone()
+        assert row["used_by"] is None
+
+    def test_delete_user_count_decreases(self, user_repo: UserRepository) -> None:
+        """削除後にカウントが減ること。"""
+        user_repo.create("user1", "pw1")
+        user_id = user_repo.create("user2", "pw2")
+        assert user_repo.count() == 2
+        user_repo.delete(user_id)
+        assert user_repo.count() == 1
+
+
 class TestUserRepositoryEdgeCases:
     """エッジケースのテスト。"""
 

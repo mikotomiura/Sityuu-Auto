@@ -399,6 +399,9 @@ class UserRepository:
     def delete(self, user_id: str) -> bool:
         """ユーザーを削除する。
 
+        関連する認証セッションと招待トークンの参照を先に削除・解除してから
+        ユーザー本体を削除する。
+
         Args:
             user_id: 削除するユーザーのUUID。
 
@@ -409,11 +412,24 @@ class UserRepository:
             DatabaseError: 削除に失敗した場合。
         """
         try:
-            cursor = self._conn.execute(
-                "DELETE FROM users WHERE id = ?",
-                (user_id,),
-            )
-            self._conn.commit()
+            # トランザクション内で関連レコードを削除してからユーザーを削除
+            with self._conn:
+                self._conn.execute(
+                    "DELETE FROM auth_sessions WHERE user_id = ?",
+                    (user_id,),
+                )
+                self._conn.execute(
+                    "DELETE FROM invitation_tokens WHERE created_by = ?",
+                    (user_id,),
+                )
+                self._conn.execute(
+                    "UPDATE invitation_tokens SET used_by = NULL WHERE used_by = ?",
+                    (user_id,),
+                )
+                cursor = self._conn.execute(
+                    "DELETE FROM users WHERE id = ?",
+                    (user_id,),
+                )
         except sqlite3.Error as e:
             logger.error("ユーザー削除失敗: %s", e)
             raise DatabaseError("ユーザーの削除に失敗しました") from e
