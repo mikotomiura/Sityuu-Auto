@@ -24,6 +24,7 @@ from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from fortune_engine.models import FortuneResult, NatalChart, SanmeiData
 from utils.exceptions import DatabaseError, PDFExportError
+from utils.privacy import inject_autocomplete_off
 
 logger = logging.getLogger(__name__)
 
@@ -242,8 +243,15 @@ def _build_fallback_markdown(
 def main() -> None:
     """鑑定履歴ページのメイン処理。"""
     _initialize_state()
+    inject_autocomplete_off()
 
     st.title("鑑定履歴")
+    st.markdown(
+        '<p class="page-description">'
+        "過去の鑑定セッションを検索・閲覧し、レポートをエクスポートできます"
+        "</p>",
+        unsafe_allow_html=True,
+    )
 
     conn = get_db_connection()
     session_repo = SessionRepository(conn)

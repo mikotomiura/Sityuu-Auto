@@ -5,6 +5,7 @@ Note:
     認証は app.py の require_login() で実施済み。
 """
 
+import html
 import logging
 from datetime import date, datetime
 
@@ -20,6 +21,7 @@ from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from utils.exceptions import DatabaseError
+from utils.privacy import inject_autocomplete_off
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +70,15 @@ def _render_list_view(
     st.caption(f"{len(clients)} 名の相談者")
 
     if not clients:
-        st.info("相談者がまだ登録されていません。鑑定ページから鑑定を行うと自動登録されます。")
+        st.markdown(
+            '<div class="empty-state">'
+            '<div class="empty-state-icon">\U0001f465</div>'
+            '<div class="empty-state-text">'
+            "相談者がまだ登録されていません。<br>"
+            "鑑定ページから鑑定を行うと自動登録されます。"
+            "</div></div>",
+            unsafe_allow_html=True,
+        )
         return
 
     # セッション数を一括取得（N+1問題の回避）
@@ -85,12 +95,15 @@ def _render_list_view(
             col_info, col_action = st.columns([4, 1])
 
             with col_info:
-                st.write(f"**{client.name}**")
-                st.caption(
-                    f"生年月日: {client.birth_date}"
-                    f" | 鑑定回数: {session_count}回"
-                    f" | 登録日: {client.created_at[:10]}"
+                badge_class = "status-badge-ai" if session_count > 0 else "status-badge-basic"
+                badge_text = f"{session_count}回鑑定" if session_count > 0 else "未鑑定"
+                # SECURITY: client.name はDB由来の自由入力。XSS防止のためエスケープ必須。
+                safe_name = html.escape(client.name)
+                st.markdown(
+                    f'**{safe_name}** <span class="status-badge {badge_class}">{badge_text}</span>',
+                    unsafe_allow_html=True,
                 )
+                st.caption(f"生年月日: {client.birth_date} | 登録日: {client.created_at[:10]}")
 
             with col_action:
                 if st.button("詳細", key=f"client_{client.id}", use_container_width=True):
@@ -270,7 +283,13 @@ def _render_detail_view(
         return
 
     if not sessions:
-        st.info("鑑定履歴がありません。")
+        st.markdown(
+            '<div class="empty-state">'
+            '<div class="empty-state-icon">\U0001f4cb</div>'
+            '<div class="empty-state-text">鑑定履歴がありません。</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
         return
 
     st.caption(f"{len(sessions)} 件の鑑定")
@@ -292,8 +311,15 @@ def _render_detail_view(
 def main() -> None:
     """相談者管理ページのメイン処理。"""
     _initialize_state()
+    inject_autocomplete_off()
 
     st.title("相談者管理")
+    st.markdown(
+        '<p class="page-description">'
+        "相談者の基本情報の閲覧・編集と、鑑定履歴のサマリを確認できます"
+        "</p>",
+        unsafe_allow_html=True,
+    )
 
     conn = get_db_connection()
     client_repo = ClientRepository(conn)

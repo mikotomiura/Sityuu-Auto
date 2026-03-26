@@ -6,6 +6,7 @@ from datetime import date, time
 import streamlit as st
 
 from config import SESSION_KEY_FORM_VERSION
+from utils.privacy import inject_autocomplete_off
 from utils.validators import validate_client_name, validate_concern
 
 
@@ -30,34 +31,6 @@ class ClientInputData:
     concern: str
 
 
-def _inject_autocomplete_off() -> None:
-    """フォーム内の入力欄でブラウザの autocomplete を無効化する。
-
-    相談者の名前等はプライバシー情報であるため、ブラウザの入力候補に
-    残らないよう autocomplete 属性を off に設定する。
-    """
-    st.markdown(
-        """
-        <script>
-        const disableAutocomplete = () => {
-            document.querySelectorAll(
-                'input[type="text"], textarea'
-            ).forEach(el => {
-                el.setAttribute('autocomplete', 'off');
-            });
-        };
-        // 初回実行 + DOM変更時にも再適用
-        disableAutocomplete();
-        const observer = new MutationObserver(disableAutocomplete);
-        observer.observe(document.body, {childList: true, subtree: true});
-        </script>
-        """,
-        # SECURITY: 注入するHTMLはハードコードされた固定スクリプトのみ。
-        # 外部入力は含まれないためXSSリスクなし。変更時は要レビュー。
-        unsafe_allow_html=True,
-    )
-
-
 def render_client_input_form() -> ClientInputData | None:
     """相談者情報の入力フォームを表示し、送信された場合にデータを返す。
 
@@ -69,7 +42,7 @@ def render_client_input_form() -> ClientInputData | None:
         フォーム送信時: ClientInputData。
         未送信時: None。
     """
-    _inject_autocomplete_off()
+    inject_autocomplete_off()
 
     form_version = st.session_state.get(SESSION_KEY_FORM_VERSION, 0)
     with st.form(f"client_input_form_{form_version}"):

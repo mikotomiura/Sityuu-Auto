@@ -19,6 +19,7 @@ from config import (
 )
 from db_service.repositories.user_repo import UserRepository
 from utils.exceptions import AuthenticationError, DatabaseError
+from utils.privacy import inject_autocomplete_off
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,8 @@ def render_login_form(user_repo: UserRepository) -> None:
     Args:
         user_repo: UserRepository インスタンス。
     """
+    inject_autocomplete_off()
+
     # サイドバーを視覚的に非表示にする
     st.markdown(
         """
@@ -121,13 +124,12 @@ def render_login_form(user_repo: UserRepository) -> None:
 
     with col_center:
         st.markdown(
-            "<h1 style='text-align: center; margin-bottom: 0.5em;'>"
-            "\U0001f52e Sityuu-Auto</h1>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<p style='text-align: center; opacity: 0.7; margin-bottom: 2em;'>"
-            "四柱推命・算命学 AI鑑定支援ツール</p>",
+            '<div class="login-card">'
+            '<div class="login-logo">\U0001f52e</div>'
+            '<div class="login-title">Sityuu-Auto</div>'
+            '<div class="login-divider"></div>'
+            '<div class="login-subtitle">四柱推命・算命学 AI鑑定支援ツール</div>'
+            "</div>",
             unsafe_allow_html=True,
         )
 

@@ -18,6 +18,15 @@ from config import (
     SESSION_KEY_TEMPLATE_EDIT_ID,
     SUPPORTED_PROVIDERS,
 )
+from db_init import get_db_connection
+from db_service.models import PromptTemplateRecord
+from db_service.repositories.prompt_template_repo import PromptTemplateRepository
+from db_service.repositories.user_repo import UserRepository, verify_password
+from utils.auth import get_current_user_id
+from utils.exceptions import DatabaseError
+from utils.privacy import inject_autocomplete_off
+
+logger = logging.getLogger(__name__)
 
 _PW_CHANGE_FAIL_KEY = "_pw_change_fail_count"
 _PW_CHANGE_MAX_ATTEMPTS = 5
@@ -28,14 +37,6 @@ _PROVIDER_LABELS: dict[str, str] = {
     "openai": "OpenAI",
     "anthropic": "Anthropic",
 }
-from db_init import get_db_connection
-from db_service.models import PromptTemplateRecord
-from db_service.repositories.prompt_template_repo import PromptTemplateRepository
-from db_service.repositories.user_repo import UserRepository, verify_password
-from utils.auth import get_current_user_id
-from utils.exceptions import DatabaseError
-
-logger = logging.getLogger(__name__)
 
 
 def _initialize_state() -> None:
@@ -443,8 +444,15 @@ def _render_edit_form(
 def main() -> None:
     """設定ページのメイン処理。"""
     _initialize_state()
+    inject_autocomplete_off()
 
     st.title("設定")
+    st.markdown(
+        '<p class="page-description">'
+        "APIキー・プロンプトテンプレート・アカウントの管理を行います"
+        "</p>",
+        unsafe_allow_html=True,
+    )
 
     tab_api, tab_template, tab_account = st.tabs(
         ["API設定", "プロンプトテンプレート", "アカウント設定"]

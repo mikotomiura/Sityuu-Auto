@@ -196,6 +196,12 @@ def main() -> None:
     _initialize_state()
 
     st.title("鑑定")
+    st.markdown(
+        '<p class="page-description">'
+        "相談者の情報を入力し、四柱推命・算命学の命式を算出、AIが鑑定レポートを生成します"
+        "</p>",
+        unsafe_allow_html=True,
+    )
 
     # --- 前回の鑑定結果が残っている場合: フォームを非表示にし結果のみ表示 ---
     prev_result = st.session_state.get(SESSION_KEY_FORTUNE_RESULT)
@@ -257,7 +263,7 @@ def main() -> None:
     with st.expander("命式プレビュー", expanded=True):
         render_natal_chart(result)
 
-    st.markdown("---")
+    st.markdown('<div class="fancy-divider"></div>', unsafe_allow_html=True)
 
     # --- Step 4: AI鑑定テキスト生成 ---
     provider = st.session_state.get(SESSION_KEY_API_PROVIDER, DEFAULT_API_PROVIDER)
@@ -357,7 +363,7 @@ def main() -> None:
     hints_response: str | None = st.session_state[SESSION_KEY_LISTENING_HINTS]
 
     if ai_response:
-        st.markdown("---")
+        st.markdown('<div class="fancy-divider"></div>', unsafe_allow_html=True)
         render_reading_result(
             result=result,
             ai_text=ai_response,
@@ -366,7 +372,7 @@ def main() -> None:
         )
 
         # --- 保存ボタン・新規鑑定ボタン ---
-        st.markdown("---")
+        st.markdown('<div class="fancy-divider"></div>', unsafe_allow_html=True)
         col_save, col_new = st.columns(2)
         with col_save:
             if st.button("鑑定結果を保存", use_container_width=True):

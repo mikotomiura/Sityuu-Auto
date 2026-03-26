@@ -295,6 +295,153 @@ hr {{
 ::-webkit-scrollbar-thumb:hover {{
     background: {_ACCENT_GOLD};
 }}
+
+/* ===== ログインページ装飾 ===== */
+.login-card {{
+    background: linear-gradient(145deg, {_BG_CARD} 0%, #1a1f55 100%);
+    border: 1px solid {_BORDER_SUBTLE};
+    border-radius: 20px;
+    padding: 2.5rem 2rem;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 0 60px rgba(212, 175, 55, 0.06);
+    margin-top: 1rem;
+}}
+
+.login-logo {{
+    text-align: center;
+    font-size: 3.5rem;
+    margin-bottom: 0.2rem;
+    filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.4));
+}}
+
+.login-title {{
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: {_ACCENT_GOLD};
+    letter-spacing: 0.08em;
+    margin-bottom: 0.3rem;
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+}}
+
+.login-subtitle {{
+    text-align: center;
+    font-size: 0.9rem;
+    color: {_TEXT_SECONDARY};
+    margin-bottom: 2rem;
+    letter-spacing: 0.06em;
+}}
+
+.login-divider {{
+    height: 1px;
+    background: linear-gradient(
+        90deg, transparent, {_BORDER_SUBTLE},
+        {_ACCENT_GOLD}, {_BORDER_SUBTLE}, transparent);
+    margin: 1.2rem 0;
+    border: none;
+}}
+
+/* ===== ページ説明テキスト ===== */
+.page-description {{
+    color: {_TEXT_SECONDARY};
+    font-size: 0.92rem;
+    margin-top: -0.8rem;
+    margin-bottom: 1.5rem;
+    padding-left: 0.1rem;
+    letter-spacing: 0.02em;
+}}
+
+/* ===== セクション見出し装飾 ===== */
+.section-header {{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+}}
+
+.section-header-icon {{
+    font-size: 1.3rem;
+    filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.3));
+}}
+
+.section-header-text {{
+    color: {_ACCENT_SILVER};
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}}
+
+/* ===== 装飾区切り線 ===== */
+.fancy-divider {{
+    height: 1px;
+    background: linear-gradient(
+        90deg, transparent, {_BORDER_SUBTLE} 20%,
+        {_ACCENT_GOLD} 50%, {_BORDER_SUBTLE} 80%, transparent);
+    margin: 1.5rem 0;
+    border: none;
+}}
+
+/* ===== 空状態メッセージ ===== */
+.empty-state {{
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: {_TEXT_SECONDARY};
+}}
+
+.empty-state-icon {{
+    font-size: 3rem;
+    margin-bottom: 0.8rem;
+    opacity: 0.6;
+    filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.2));
+}}
+
+.empty-state-text {{
+    font-size: 1rem;
+    line-height: 1.6;
+}}
+
+/* ===== サイドバー装飾 ===== */
+section[data-testid="stSidebar"] .sidebar-brand {{
+    text-align: center;
+    padding: 0.5rem 0 1rem;
+}}
+
+section[data-testid="stSidebar"] .sidebar-brand-icon {{
+    font-size: 2.5rem;
+    filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.5));
+}}
+
+section[data-testid="stSidebar"] .sidebar-divider {{
+    height: 1px;
+    background: linear-gradient(
+        90deg, transparent, {_BORDER_SUBTLE},
+        {_ACCENT_GOLD}, {_BORDER_SUBTLE}, transparent);
+    margin: 0.5rem 0;
+    border: none;
+}}
+
+/* ===== ステータスバッジ ===== */
+.status-badge {{
+    display: inline-block;
+    padding: 0.2rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}}
+
+.status-badge-ai {{
+    background: rgba(212, 175, 55, 0.15);
+    color: {_ACCENT_GOLD};
+    border: 1px solid rgba(212, 175, 55, 0.3);
+}}
+
+.status-badge-basic {{
+    background: rgba(192, 192, 192, 0.1);
+    color: {_ACCENT_SILVER};
+    border: 1px solid rgba(192, 192, 192, 0.2);
+}}
 </style>
 """
 
