@@ -118,18 +118,14 @@ def render_login_form(user_repo: UserRepository) -> None:
     st.markdown(
         """
         <style>
-        section[data-testid="stSidebar"] {
-            visibility: hidden !important;
-            width: 0px !important;
-            min-width: 0px !important;
-            max-width: 0px !important;
-            overflow: hidden !important;
+        [data-testid="stSidebar"] {
+            display: none !important;
         }
-        div[data-testid="stSidebarCollapsedControl"] {
-            visibility: hidden !important;
+        [data-testid="stSidebarCollapseButton"] {
+            display: none !important;
         }
-        header[data-testid="stHeader"] {
-            visibility: hidden !important;
+        [data-testid="stHeader"] {
+            display: none !important;
         }
         </style>
         """,
@@ -203,18 +199,14 @@ def _render_registration_form(
     st.markdown(
         """
         <style>
-        section[data-testid="stSidebar"] {
-            visibility: hidden !important;
-            width: 0px !important;
-            min-width: 0px !important;
-            max-width: 0px !important;
-            overflow: hidden !important;
+        [data-testid="stSidebar"] {
+            display: none !important;
         }
-        div[data-testid="stSidebarCollapsedControl"] {
-            visibility: hidden !important;
+        [data-testid="stSidebarCollapseButton"] {
+            display: none !important;
         }
-        header[data-testid="stHeader"] {
-            visibility: hidden !important;
+        [data-testid="stHeader"] {
+            display: none !important;
         }
         </style>
         """,

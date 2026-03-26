@@ -35,18 +35,21 @@ invitation_repo = InvitationRepository(conn)
 require_login(user_repo, invitation_repo)
 
 # --- 認証済み: サイドバー表示を保証 ---
+# ログインページの display:none をリセットし、サイドバーを確実に表示する
 st.markdown(
     """
     <style>
-    section[data-testid="stSidebar"] {
+    [data-testid="stSidebar"] {
+        display: block !important;
         visibility: visible !important;
-        min-width: 245px !important;
         opacity: 1 !important;
     }
-    div[data-testid="stSidebarCollapsedControl"] {
+    [data-testid="stSidebarCollapseButton"] {
+        display: block !important;
         visibility: visible !important;
     }
-    header[data-testid="stHeader"] {
+    [data-testid="stHeader"] {
+        display: block !important;
         visibility: visible !important;
     }
     </style>

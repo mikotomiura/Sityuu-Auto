@@ -28,47 +28,56 @@ _CUSTOM_CSS = f"""
 }}
 
 /* ===== Streamlit ヘッダー（サイドバートグル保持） ===== */
-header[data-testid="stHeader"] {{
+/* 要素型を指定しない（Streamlitバージョンでタグが変わるため） */
+[data-testid="stHeader"] {{
     background: {_BG_PRIMARY} !important;
     border-bottom: 1px solid {_BORDER_SUBTLE} !important;
 }}
-div[data-testid="stToolbar"] {{
+[data-testid="stToolbar"],
+[data-testid="stAppToolbar"] {{
     display: none !important;
 }}
-div[data-testid="stDecoration"] {{
+[data-testid="stDecoration"] {{
     display: none !important;
 }}
-div[data-testid="stStatusWidget"] {{
+[data-testid="stStatusWidget"] {{
     display: none !important;
 }}
 
-/* ===== サイドバートグル・展開ボタンのダークテーマ対応 ===== */
-button[data-testid="stSidebarNavToggle"] {{
+/* ===== サイドバー展開/折りたたみボタン（Streamlit 1.55対応） ===== */
+[data-testid="stSidebarCollapseButton"] {{
     color: {_TEXT_PRIMARY} !important;
 }}
-div[data-testid="stSidebarCollapsedControl"] {{
-    color: {_TEXT_PRIMARY} !important;
-}}
-div[data-testid="stSidebarCollapsedControl"] button {{
+[data-testid="stSidebarCollapseButton"] button {{
     color: {_TEXT_PRIMARY} !important;
     background-color: {_BG_CARD} !important;
-    border: 1px solid {_BORDER_SUBTLE} !important;
+}}
+[data-testid="stSidebarNavViewButton"] {{
+    color: {_TEXT_PRIMARY} !important;
 }}
 
 
 /* ===== サイドバー ===== */
-section[data-testid="stSidebar"] {{
+[data-testid="stSidebar"] {{
     background: linear-gradient(180deg, #0c1035 0%, #151a48 100%);
     border-right: 1px solid {_BORDER_SUBTLE};
 }}
 
-section[data-testid="stSidebar"] .stMarkdown p,
-section[data-testid="stSidebar"] .stMarkdown li {{
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] .stMarkdown li {{
     color: {_TEXT_SECONDARY};
 }}
 
+/* サイドバーナビゲーションリンク */
+[data-testid="stSidebarNavLink"] {{
+    color: {_TEXT_SECONDARY} !important;
+}}
+[data-testid="stSidebarNavLink"][aria-selected="true"] {{
+    color: {_ACCENT_GOLD} !important;
+}}
+
 /* サイドバータイトル */
-section[data-testid="stSidebar"] h1 {{
+[data-testid="stSidebar"] h1 {{
     color: {_ACCENT_GOLD} !important;
     text-shadow: 0 0 12px rgba(212, 175, 55, 0.3);
 }}
@@ -442,17 +451,17 @@ hr {{
 }}
 
 /* ===== サイドバー装飾 ===== */
-section[data-testid="stSidebar"] .sidebar-brand {{
+[data-testid="stSidebar"] .sidebar-brand {{
     text-align: center;
     padding: 0.5rem 0 1rem;
 }}
 
-section[data-testid="stSidebar"] .sidebar-brand-icon {{
+[data-testid="stSidebar"] .sidebar-brand-icon {{
     font-size: 2.5rem;
     filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.5));
 }}
 
-section[data-testid="stSidebar"] .sidebar-divider {{
+[data-testid="stSidebar"] .sidebar-divider {{
     height: 1px;
     background: linear-gradient(
         90deg, transparent, {_BORDER_SUBTLE},
