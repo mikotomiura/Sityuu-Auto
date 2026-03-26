@@ -7,7 +7,7 @@ import streamlit as st
 
 from config import SESSION_KEY_FORM_VERSION
 from utils.privacy import inject_autocomplete_off
-from utils.validators import validate_client_name, validate_concern
+from utils.validators import validate_birth_date, validate_client_name, validate_concern
 
 
 @dataclass
@@ -76,14 +76,16 @@ def render_client_input_form() -> ClientInputData | None:
         with col_date:
             birth_date = st.date_input(
                 "生年月日",
-                value=date(1990, 1, 1),
+                value=None,
                 min_value=date(1900, 1, 1),
                 max_value=date.today(),
+                format="YYYY/MM/DD",
             )
         with col_time:
             birth_time_unknown = st.checkbox("出生時間不明")
             birth_time_input = st.time_input(
                 "出生時間",
+                value=None,
                 disabled=birth_time_unknown,
             )
 
@@ -111,11 +113,18 @@ def render_client_input_form() -> ClientInputData | None:
         st.warning(name_error)
         return None
 
+    birth_date_error = validate_birth_date(birth_date)
+    if birth_date_error:
+        st.warning(birth_date_error)
+        return None
+
     concern_error = validate_concern(concern)
     if concern_error:
         st.warning(concern_error)
         return None
 
+    # バリデーション通過後、birth_date は None でないことが保証されている
+    assert birth_date is not None
     return ClientInputData(
         name=name.strip(),
         name_kana=name_kana.strip() if name_kana.strip() else None,

@@ -32,15 +32,17 @@ def validate_client_name(name: str) -> str | None:
     return None
 
 
-def validate_birth_date(birth_date: date) -> str | None:
+def validate_birth_date(birth_date: date | None) -> str | None:
     """生年月日を検証する。
 
     Args:
-        birth_date: 相談者の生年月日。
+        birth_date: 相談者の生年月日。未入力の場合は None。
 
     Returns:
         検証エラー時はエラーメッセージ。成功時は None。
     """
+    if birth_date is None:
+        return "生年月日を入力してください。"
     if birth_date < BIRTH_DATE_MIN:
         return f"生年月日は{BIRTH_DATE_MIN.isoformat()}以降を指定してください。"
     if birth_date > date.today():

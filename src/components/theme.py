@@ -27,9 +27,11 @@ _CUSTOM_CSS = f"""
     color: {_TEXT_PRIMARY};
 }}
 
-/* ===== Streamlit ヘッダー/ツールバー非表示 ===== */
+/* ===== Streamlit ツールバー/デコレーション非表示 ===== */
+/* Note: stHeader 自体は非表示にしない（サイドバートグルボタンが含まれるため） */
 header[data-testid="stHeader"] {{
-    display: none !important;
+    background: transparent !important;
+    border-bottom: none !important;
 }}
 div[data-testid="stToolbar"] {{
     display: none !important;
