@@ -29,8 +29,16 @@ _CUSTOM_CSS = f"""
 
 /* ===== Streamlit ヘッダー/ツールバー非表示 ===== */
 header[data-testid="stHeader"] {{
-    background: transparent !important;
-    backdrop-filter: none !important;
+    display: none !important;
+}}
+div[data-testid="stToolbar"] {{
+    display: none !important;
+}}
+div[data-testid="stDecoration"] {{
+    display: none !important;
+}}
+div[data-testid="stStatusWidget"] {{
+    display: none !important;
 }}
 
 
