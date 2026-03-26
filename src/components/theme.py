@@ -27,16 +27,23 @@ _CUSTOM_CSS = f"""
     color: {_TEXT_PRIMARY};
 }}
 
+/* ===== Streamlit ヘッダー/ツールバー非表示 ===== */
+header[data-testid="stHeader"] {{
+    background: transparent !important;
+    backdrop-filter: none !important;
+}}
+
 /* ===== 非表示iframeコンテナ（autocomplete無効化JS用）===== */
 iframe[height="0"] {{
     display: none !important;
 }}
-iframe[height="0"] + div,
 div:has(> iframe[height="0"]) {{
     height: 0 !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
+    position: absolute !important;
 }}
 
 /* ===== サイドバー ===== */
