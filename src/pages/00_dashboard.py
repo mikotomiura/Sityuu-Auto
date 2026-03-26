@@ -4,13 +4,21 @@
 """
 
 import logging
+import os
 
 import streamlit as st
 
-from config import SESSION_KEY_AUTH_DISPLAY_NAME, SESSION_KEY_AUTH_USERNAME
+from config import (
+    API_KEY_ENV_MAP,
+    SESSION_KEY_API_PROVIDER,
+    SESSION_KEY_AUTH_DISPLAY_NAME,
+    SESSION_KEY_AUTH_USERNAME,
+)
 from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
+from db_service.repositories.user_repo import UserRepository
+from utils.auth import get_current_user_id
 from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
@@ -52,10 +60,26 @@ def _render_stats(
     except DatabaseError:
         session_count = 0
 
+    # APIキー状態を確認
+    provider = st.session_state.get(SESSION_KEY_API_PROVIDER, "")
+    user_id = get_current_user_id()
+    api_status = "未設定"
+    if user_id:
+        try:
+            conn = get_db_connection()
+            user_repo = UserRepository(conn)
+            user_key = user_repo.get_api_key(user_id, provider)
+            if user_key:
+                api_status = "個人キー"
+            elif os.environ.get(API_KEY_ENV_MAP.get(provider, ""), ""):
+                api_status = "システム"
+        except DatabaseError:
+            pass
+
     col1, col2, col3 = st.columns(3)
     col1.metric("相談者数", f"{client_count} 名")
     col2.metric("鑑定回数", f"{session_count} 回")
-    col3.metric("ステータス", "稼働中")
+    col3.metric("APIキー", api_status)
 
 
 def _render_recent_sessions(session_repo: SessionRepository) -> None:
