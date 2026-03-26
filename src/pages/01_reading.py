@@ -11,7 +11,6 @@ from components.input_form import render_client_input_form
 from components.natal_chart_display import render_natal_chart
 from components.reading_result import render_reading_result
 from config import (
-    API_KEY_ENV_MAP,
     API_TIMEOUT_SECONDS,
     DEFAULT_API_PROVIDER,
     DEFAULT_MODEL,
@@ -85,10 +84,9 @@ def _clear_reading_state() -> None:
 
 
 def _get_api_key(provider: str) -> str | None:
-    """APIキーを取得する（BYOK フォールバック対応）。
+    """APIキーを取得する（BYOKのみ）。
 
-    ユーザーのDBに登録されたAPIキーを優先し、
-    未登録の場合は環境変数（.env）のシステムキーにフォールバックする。
+    ユーザーがAPI設定で登録した個人キーのみを使用する。
 
     Args:
         provider: APIプロバイダー名。
@@ -96,19 +94,11 @@ def _get_api_key(provider: str) -> str | None:
     Returns:
         APIキー文字列。未設定の場合はNone。
     """
-    # 1. ユーザーの個人APIキーを確認
     user_id = get_current_user_id()
     if user_id:
         conn = get_db_connection()
         user_repo = UserRepository(conn)
-        user_key = user_repo.get_api_key(user_id, provider)
-        if user_key:
-            return user_key
-
-    # 2. システムの環境変数にフォールバック
-    env_var = API_KEY_ENV_MAP.get(provider)
-    if env_var:
-        return os.environ.get(env_var)
+        return user_repo.get_api_key(user_id, provider)
     return None
 
 

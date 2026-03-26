@@ -4,12 +4,10 @@
 """
 
 import logging
-import os
 
 import streamlit as st
 
 from config import (
-    API_KEY_ENV_MAP,
     SESSION_KEY_API_PROVIDER,
     SESSION_KEY_AUTH_DISPLAY_NAME,
     SESSION_KEY_AUTH_USERNAME,
@@ -73,8 +71,6 @@ def _render_stats(
             user_key = user_repo.get_api_key(user_id, provider)
             if user_key:
                 api_status = "設定済み"
-            elif os.environ.get(API_KEY_ENV_MAP.get(provider, ""), ""):
-                api_status = "利用可能"
         except DatabaseError:
             pass
 

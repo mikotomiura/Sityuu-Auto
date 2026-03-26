@@ -111,22 +111,17 @@ def _render_api_settings() -> None:
         _save_user_preferences(selected_provider, new_model)
         st.rerun()
 
-    # --- APIキーステータス（ユーザーBYOK + システム） ---
+    # --- APIキーステータス ---
     user_id = get_current_user_id()
     conn = get_db_connection()
     user_repo = UserRepository(conn)
     user_key = user_repo.get_api_key(user_id, selected_provider) if user_id else None
-    has_system_key = _check_system_api_key(selected_provider)
 
     if user_key:
-        st.success(f"個人APIキーが登録済みです（{selected_provider}）。")
-    elif has_system_key:
-        st.info(f"システムAPIキーを使用します（{selected_provider}）。")
+        st.success(f"APIキーが登録済みです（{selected_provider}）。")
     else:
-        env_var = API_KEY_ENV_MAP.get(selected_provider, "")
         st.warning(
-            f"APIキーが未設定です。下部の「APIキーの管理」で個人キーを登録するか、"
-            f"`.env` ファイルに `{env_var}` を設定してください。"
+            f"APIキーが未設定です。下部の「APIキーの管理」から登録してください。"
         )
 
     # --- モデル設定 ---
@@ -156,12 +151,7 @@ def _render_api_settings() -> None:
 
     provider_label = _PROVIDER_LABELS.get(selected_provider, selected_provider)
     model_display = model_input or default_model
-    if user_key:
-        key_source = "✅ 個人キー設定済み"
-    elif has_system_key:
-        key_source = "✅ 共通キーで利用可能"
-    else:
-        key_source = "⚠️ 未設定"
+    key_source = "✅ 設定済み" if user_key else "⚠️ 未設定"
 
     col1, col2, col3 = st.columns(3)
     col1.markdown(f"**プロバイダー**<br>`{provider_label}`", unsafe_allow_html=True)
@@ -196,11 +186,7 @@ def _render_api_settings() -> None:
             if current_value:
                 st.caption(f"登録済み: {display_value}")
             else:
-                has_system = _check_system_api_key(provider)
-                if has_system:
-                    st.caption("個人キー未登録（システムキーを使用中）")
-                else:
-                    st.caption("未登録")
+                st.caption("未登録")
 
             new_key = st.text_input(
                 f"{label} APIキー",
