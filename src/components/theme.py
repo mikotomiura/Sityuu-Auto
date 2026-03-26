@@ -33,10 +33,7 @@ _CUSTOM_CSS = f"""
     background: {_BG_PRIMARY} !important;
     border-bottom: 1px solid {_BORDER_SUBTLE} !important;
 }}
-[data-testid="stToolbar"],
-[data-testid="stAppToolbar"] {{
-    display: none !important;
-}}
+/* Note: stToolbar/stAppToolbar は非表示にしない（サイドバーの親要素である可能性がある） */
 [data-testid="stDecoration"] {{
     display: none !important;
 }}
