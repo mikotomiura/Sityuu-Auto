@@ -100,13 +100,10 @@ def _render_quick_actions() -> None:
     """クイックアクションセクションを表示する。"""
     st.subheader("クイックアクション")
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.page_link("pages/01_reading.py", label="新しい鑑定を開始", icon="✨")
-    with col2:
-        st.page_link("pages/02_history.py", label="鑑定履歴を見る", icon="📋")
-    with col3:
-        st.page_link("pages/03_clients.py", label="相談者を管理", icon="👥")
+    st.page_link("pages/01_reading.py", label="✨ 新しい鑑定を開始", use_container_width=True)
+    st.page_link("pages/02_history.py", label="📋 鑑定履歴を見る", use_container_width=True)
+    st.page_link("pages/03_clients.py", label="👥 相談者を管理", use_container_width=True)
+    st.page_link("pages/04_settings.py", label="⚙️ 設定", use_container_width=True)
 
 
 def main() -> None:
