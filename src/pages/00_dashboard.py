@@ -61,7 +61,9 @@ def _render_stats(
         session_count = 0
 
     # APIキー状態を確認
-    provider = st.session_state.get(SESSION_KEY_API_PROVIDER, "")
+    from config import DEFAULT_API_PROVIDER
+
+    provider = st.session_state.get(SESSION_KEY_API_PROVIDER, DEFAULT_API_PROVIDER)
     user_id = get_current_user_id()
     api_status = "未設定"
     if user_id:
