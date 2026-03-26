@@ -19,7 +19,10 @@ from config import (
     SESSION_KEY_AUTH_ROLE,
     SESSION_KEY_AUTH_USER_ID,
     SESSION_KEY_AUTH_USERNAME,
+    SESSION_TOKEN_QUERY_PARAM,
 )
+from db_service.models import UserRecord
+from db_service.repositories.auth_session_repo import AuthSessionRepository
 from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.user_repo import UserRepository
 from utils.exceptions import AuthenticationError, DatabaseError
@@ -55,8 +58,25 @@ def get_current_username() -> str | None:
     return st.session_state.get(SESSION_KEY_AUTH_USERNAME)
 
 
-def logout() -> None:
-    """ログアウト処理（セッションから認証情報とAPI設定を削除）。"""
+def logout(auth_session_repo: AuthSessionRepository | None = None) -> None:
+    """ログアウト処理（セッションから認証情報とAPI設定を削除）。
+
+    Args:
+        auth_session_repo: セッションリポジトリ。指定時はDBトークンも無効化する。
+    """
+    # DBセッショントークンを無効化
+    session_token = st.query_params.get(SESSION_TOKEN_QUERY_PARAM)
+    if session_token and auth_session_repo is not None:
+        try:
+            auth_session_repo.revoke(session_token)
+        except DatabaseError:
+            logger.warning("セッショントークン無効化に失敗")
+
+    # URLからセッションパラメータを削除
+    if SESSION_TOKEN_QUERY_PARAM in st.query_params:
+        del st.query_params[SESSION_TOKEN_QUERY_PARAM]
+
+    # session_stateをクリア
     for key in (
         SESSION_KEY_AUTH_USER_ID,
         SESSION_KEY_AUTH_USERNAME,
@@ -68,28 +88,83 @@ def logout() -> None:
         st.session_state.pop(key, None)
 
 
-def _login(user_repo: UserRepository, username: str, password: str) -> bool:
+def _restore_session_from_user(user: UserRecord) -> None:
+    """UserRecord から session_state を復元する。
+
+    Args:
+        user: ユーザーレコード。
+    """
+    st.session_state[SESSION_KEY_AUTH_USER_ID] = user.id
+    st.session_state[SESSION_KEY_AUTH_USERNAME] = user.username
+    st.session_state[SESSION_KEY_AUTH_ROLE] = user.role
+    if user.preferred_provider:
+        st.session_state[SESSION_KEY_API_PROVIDER] = user.preferred_provider
+    if user.preferred_model:
+        st.session_state[SESSION_KEY_API_MODEL] = user.preferred_model
+
+
+def _try_restore_from_token(
+    auth_session_repo: AuthSessionRepository,
+) -> bool:
+    """クエリパラメータのセッショントークンからログイン状態を復元する。
+
+    Args:
+        auth_session_repo: セッションリポジトリ。
+
+    Returns:
+        復元成功なら True。
+    """
+    token = st.query_params.get(SESSION_TOKEN_QUERY_PARAM)
+    if not token:
+        return False
+
+    try:
+        user = auth_session_repo.validate_token(token)
+    except DatabaseError:
+        logger.warning("セッショントークン検証中にDBエラー")
+        return False
+
+    if user is None:
+        # 無効なトークンをURLから削除
+        del st.query_params[SESSION_TOKEN_QUERY_PARAM]
+        return False
+
+    _restore_session_from_user(user)
+    logger.info("セッショントークンからログイン復元: username=%s", user.username)
+    return True
+
+
+def _login(
+    user_repo: UserRepository,
+    username: str,
+    password: str,
+    auth_session_repo: AuthSessionRepository | None = None,
+) -> bool:
     """ログイン処理を実行する。
 
     Args:
         user_repo: UserRepository インスタンス。
         username: ユーザー名。
         password: 平文パスワード。
+        auth_session_repo: セッションリポジトリ。指定時は永続トークンを生成する。
 
     Returns:
         ログイン成功なら True。
     """
     try:
         user = user_repo.authenticate(username, password)
-        st.session_state[SESSION_KEY_AUTH_USER_ID] = user.id
-        st.session_state[SESSION_KEY_AUTH_USERNAME] = user.username
-        st.session_state[SESSION_KEY_AUTH_ROLE] = user.role
-        # ユーザーの保存済みAPI設定を復元
-        if user.preferred_provider:
-            st.session_state[SESSION_KEY_API_PROVIDER] = user.preferred_provider
-        if user.preferred_model:
-            st.session_state[SESSION_KEY_API_MODEL] = user.preferred_model
+        _restore_session_from_user(user)
         st.session_state.pop(SESSION_KEY_AUTH_FAIL_COUNT, None)
+
+        # セッショントークンを生成してURLに埋め込む
+        if auth_session_repo is not None:
+            try:
+                token = auth_session_repo.create(user.id)
+                st.query_params[SESSION_TOKEN_QUERY_PARAM] = token
+                auth_session_repo.cleanup_expired()
+            except DatabaseError:
+                logger.warning("セッショントークン生成に失敗（ログインは継続）")
+
         logger.info("ログイン成功: username=%s", username)
         return True
     except AuthenticationError:
@@ -102,13 +177,17 @@ def _login(user_repo: UserRepository, username: str, password: str) -> bool:
         return False
 
 
-def render_login_form(user_repo: UserRepository) -> None:
+def render_login_form(
+    user_repo: UserRepository,
+    auth_session_repo: AuthSessionRepository | None = None,
+) -> None:
     """ログインフォームを画面中央に表示する。
 
     ログイン成功時は st.rerun() でページを再読み込みする。
 
     Args:
         user_repo: UserRepository インスタンス。
+        auth_session_repo: セッションリポジトリ（トークン生成用）。
     """
     inject_autocomplete_off()
 
@@ -172,7 +251,7 @@ def render_login_form(user_repo: UserRepository) -> None:
                     st.error("ユーザー名とパスワードを入力してください。")
                 else:
                     try:
-                        success = _login(user_repo, username, password)
+                        success = _login(user_repo, username, password, auth_session_repo)
                         if success:
                             st.rerun()
                         else:
@@ -307,17 +386,24 @@ def _render_registration_form(
 def require_login(
     user_repo: UserRepository,
     invitation_repo: InvitationRepository | None = None,
+    auth_session_repo: AuthSessionRepository | None = None,
 ) -> None:
     """ログインを必須にする。未ログイン時はフォームを表示して st.stop()。
 
+    セッショントークンがクエリパラメータに含まれている場合は自動復元を試みる。
     招待トークンがクエリパラメータに含まれている場合は登録フォームを表示する。
     app.py のページ設定後に呼び出す。
 
     Args:
         user_repo: UserRepository インスタンス。
         invitation_repo: InvitationRepository インスタンス（招待登録用）。
+        auth_session_repo: セッションリポジトリ（トークン復元用）。
     """
     if is_logged_in():
+        return
+
+    # セッショントークンからの復元を試みる
+    if auth_session_repo is not None and _try_restore_from_token(auth_session_repo):
         return
 
     # 招待トークンによる登録フロー
@@ -326,5 +412,5 @@ def require_login(
         _render_registration_form(user_repo, invitation_repo, token)
         st.stop()
 
-    render_login_form(user_repo)
+    render_login_form(user_repo, auth_session_repo)
     st.stop()

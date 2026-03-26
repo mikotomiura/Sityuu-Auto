@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from components.theme import inject_custom_theme
 from config import APP_ICON, APP_TITLE, SESSION_KEY_AUTH_ROLE
 from db_init import get_db_connection
+from db_service.repositories.auth_session_repo import AuthSessionRepository
 from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.user_repo import UserRepository
 from utils.auth import get_current_username, logout, require_login
@@ -32,7 +33,8 @@ inject_custom_theme()
 conn = get_db_connection()
 user_repo = UserRepository(conn)
 invitation_repo = InvitationRepository(conn)
-require_login(user_repo, invitation_repo)
+auth_session_repo = AuthSessionRepository(conn)
+require_login(user_repo, invitation_repo, auth_session_repo)
 
 # --- 認証済み: サイドバー表示を保証 ---
 # ログインページの display:none をリセットし、サイドバーを確実に表示する
@@ -70,7 +72,7 @@ st.sidebar.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=Tru
 username = get_current_username()
 st.sidebar.markdown(f"**ログイン中:** {username}")
 if st.sidebar.button("ログアウト", use_container_width=True):
-    logout()
+    logout(auth_session_repo)
     st.rerun()
 
 st.sidebar.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)

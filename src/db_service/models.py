@@ -117,6 +117,25 @@ class InvitationTokenRecord:
 
 
 @dataclass(frozen=True)
+class AuthSessionRecord:
+    """認証セッショントークンテーブルのレコード。
+
+    Attributes:
+        id: UUID 文字列。
+        user_id: ユーザーの UUID。
+        token: URL安全なセッショントークン。
+        expires_at: 有効期限（ISO 8601 形式）。
+        created_at: 作成日時（ISO 8601 形式）。
+    """
+
+    id: str
+    user_id: str
+    token: str
+    expires_at: str
+    created_at: str
+
+
+@dataclass(frozen=True)
 class PromptTemplateRecord:
     """プロンプトテンプレートテーブルのレコード。
 
