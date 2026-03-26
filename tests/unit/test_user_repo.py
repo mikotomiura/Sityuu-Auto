@@ -59,7 +59,7 @@ class TestUserRepositoryCreate:
     def test_create_duplicate_username_raises_error(self, user_repo: UserRepository) -> None:
         """重複ユーザー名でDatabaseErrorが発生すること。"""
         user_repo.create("testuser", "password123")
-        with pytest.raises(DatabaseError, match="既に使用されています"):
+        with pytest.raises(DatabaseError, match="既に使用されて"):
             user_repo.create("testuser", "other_password")
 
     def test_create_user_with_admin_role(self, user_repo: UserRepository) -> None:

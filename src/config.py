@@ -34,6 +34,10 @@ SESSION_KEY_AUTH_FAIL_COUNT = "auth_fail_count"
 # --- パスワードポリシー ---
 PASSWORD_MIN_LENGTH = 8
 
+# --- 招待トークン ---
+INVITATION_TOKEN_QUERY_PARAM = "token"
+INVITATION_DEFAULT_EXPIRY_HOURS = 72
+
 # --- テンプレート管理用 ---
 SESSION_KEY_SELECTED_TEMPLATE = "selected_template_id"
 SESSION_KEY_TEMPLATE_EDIT_ID = "template_edit_id"

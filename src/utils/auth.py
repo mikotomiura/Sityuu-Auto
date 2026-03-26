@@ -11,6 +11,8 @@ import uuid
 import streamlit as st
 
 from config import (
+    INVITATION_TOKEN_QUERY_PARAM,
+    PASSWORD_MIN_LENGTH,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
     SESSION_KEY_AUTH_FAIL_COUNT,
@@ -18,6 +20,7 @@ from config import (
     SESSION_KEY_AUTH_USER_ID,
     SESSION_KEY_AUTH_USERNAME,
 )
+from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.user_repo import UserRepository
 from utils.exceptions import AuthenticationError, DatabaseError
 from utils.privacy import inject_autocomplete_off
@@ -169,16 +172,143 @@ def render_login_form(user_repo: UserRepository) -> None:
                         st.error("認証処理中にエラーが発生しました。")
 
 
-def require_login(user_repo: UserRepository) -> None:
+def _render_registration_form(
+    user_repo: UserRepository,
+    invitation_repo: InvitationRepository,
+    token: str,
+) -> None:
+    """招待トークンによるセルフ登録フォームを表示する。
+
+    Args:
+        user_repo: UserRepository インスタンス。
+        invitation_repo: InvitationRepository インスタンス。
+        token: 招待トークン文字列。
+    """
+    inject_autocomplete_off()
+
+    # サイドバーを非表示
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] { display: none; }
+        div[data-testid="stSidebarCollapsedControl"] { display: none; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # トークン検証
+    invitation = invitation_repo.validate_token(token)
+    if invitation is None:
+        _col_left, col_center, _col_right = st.columns([1, 2, 1])
+        with col_center:
+            st.error("この招待リンクは無効です（期限切れまたは使用済み）。")
+            st.info("管理者に新しい招待リンクの発行を依頼してください。")
+            if st.button("ログイン画面へ", use_container_width=True):
+                st.query_params.clear()
+                st.rerun()
+        return
+
+    _col_left, col_center, _col_right = st.columns([1, 2, 1])
+
+    with col_center:
+        st.markdown(
+            '<div class="login-card">'
+            '<div class="login-logo">\U0001f52e</div>'
+            '<div class="login-title">Sityuu-Auto</div>'
+            '<div class="login-divider"></div>'
+            '<div class="login-subtitle">アカウント登録</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        if "_reg_form_id" not in st.session_state:
+            st.session_state["_reg_form_id"] = uuid.uuid4().hex[:8]
+        form_id = st.session_state["_reg_form_id"]
+
+        with st.form(f"register_form_{form_id}"):
+            username = st.text_input(
+                "ユーザー名",
+                placeholder="任意のユーザー名を入力",
+                key=f"reg_user_{form_id}",
+                autocomplete="one-time-code",
+            )
+            password = st.text_input(
+                "パスワード",
+                type="password",
+                placeholder=f"{PASSWORD_MIN_LENGTH}文字以上",
+                key=f"reg_pass_{form_id}",
+                autocomplete="new-password",
+            )
+            confirm_password = st.text_input(
+                "パスワード（確認）",
+                type="password",
+                placeholder="もう一度入力",
+                key=f"reg_confirm_{form_id}",
+                autocomplete="new-password",
+            )
+            submitted = st.form_submit_button(
+                "アカウントを作成", type="primary", use_container_width=True
+            )
+
+            if submitted:
+                if not username or not password or not confirm_password:
+                    st.error("すべてのフィールドを入力してください。")
+                elif len(username.strip()) < 2:
+                    st.error("ユーザー名は2文字以上で入力してください。")
+                elif len(password) < PASSWORD_MIN_LENGTH:
+                    st.error(f"パスワードは{PASSWORD_MIN_LENGTH}文字以上で設定してください。")
+                elif password != confirm_password:
+                    st.error("パスワードが一致しません。")
+                else:
+                    try:
+                        user_id = user_repo.create(
+                            username=username.strip(),
+                            password=password,
+                            role="user",
+                        )
+                        if not invitation_repo.use_token(token, user_id):
+                            # トークン使用済みマークに失敗 → ユーザーをロールバック
+                            user_repo.delete(user_id)
+                            st.error("この招待リンクは既に使用されています。")
+                        else:
+                            st.success("アカウントを作成しました。ログインしてください。")
+                            st.query_params.clear()
+                            logger.info("招待トークンによるユーザー登録: username=%s", username)
+                            st.rerun()
+                    except DatabaseError as e:
+                        error_msg = str(e)
+                        if "既に使用されています" in error_msg:
+                            st.error("このユーザー名は既に使用されています。")
+                        else:
+                            st.error("アカウントの作成に失敗しました。")
+
+        if st.button("ログイン画面へ戻る", use_container_width=True):
+            st.query_params.clear()
+            st.rerun()
+
+
+def require_login(
+    user_repo: UserRepository,
+    invitation_repo: InvitationRepository | None = None,
+) -> None:
     """ログインを必須にする。未ログイン時はフォームを表示して st.stop()。
 
+    招待トークンがクエリパラメータに含まれている場合は登録フォームを表示する。
     app.py のページ設定後に呼び出す。
 
     Args:
         user_repo: UserRepository インスタンス。
+        invitation_repo: InvitationRepository インスタンス（招待登録用）。
     """
     if is_logged_in():
         return
+
+    # 招待トークンによる登録フロー
+    token = st.query_params.get(INVITATION_TOKEN_QUERY_PARAM)
+    if token and invitation_repo is not None:
+        _render_registration_form(user_repo, invitation_repo, token)
+        st.stop()
 
     render_login_form(user_repo)
     st.stop()

@@ -118,7 +118,7 @@ class UserRepository:
             self._conn.commit()
         except sqlite3.IntegrityError as e:
             logger.error("ユーザー作成失敗（重複）: %s", e)
-            raise DatabaseError(f"ユーザー名 '{username}' は既に使用されています") from e
+            raise DatabaseError("ユーザー名が既に使用されています") from e
         except sqlite3.Error as e:
             logger.error("ユーザー作成失敗: %s", e)
             raise DatabaseError("ユーザーの作成に失敗しました") from e
@@ -344,6 +344,51 @@ class UserRepository:
         if updated:
             logger.info("ユーザー設定を更新: user_id=%s", user_id)
         return updated
+
+    def find_all(self) -> list[UserRecord]:
+        """全ユーザーを作成日時の降順で取得する。
+
+        Returns:
+            UserRecord のリスト。
+
+        Raises:
+            DatabaseError: 取得に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute("SELECT * FROM users ORDER BY created_at DESC")
+            rows = cursor.fetchall()
+        except sqlite3.Error as e:
+            logger.error("ユーザー一覧取得失敗: %s", e)
+            raise DatabaseError("ユーザー一覧の取得に失敗しました") from e
+
+        return [_row_to_user_record(row) for row in rows]
+
+    def delete(self, user_id: str) -> bool:
+        """ユーザーを削除する。
+
+        Args:
+            user_id: 削除するユーザーのUUID。
+
+        Returns:
+            削除成功なら True。
+
+        Raises:
+            DatabaseError: 削除に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "DELETE FROM users WHERE id = ?",
+                (user_id,),
+            )
+            self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error("ユーザー削除失敗: %s", e)
+            raise DatabaseError("ユーザーの削除に失敗しました") from e
+
+        deleted = cursor.rowcount > 0
+        if deleted:
+            logger.info("ユーザーを削除: user_id=%s", user_id)
+        return deleted
 
     def count(self) -> int:
         """ユーザー数を取得する。

@@ -94,6 +94,29 @@ class UserRecord:
 
 
 @dataclass(frozen=True)
+class InvitationTokenRecord:
+    """招待トークンテーブルのレコード。
+
+    Attributes:
+        id: UUID 文字列。
+        token: URL安全なトークン文字列。
+        created_by: トークンを生成した管理者のユーザーID。
+        used_by: トークンを使用して登録したユーザーのID。未使用は None。
+        expires_at: 有効期限（ISO 8601 形式）。
+        used_at: 使用日時（ISO 8601 形式）。未使用は None。
+        created_at: 作成日時（ISO 8601 形式）。
+    """
+
+    id: str
+    token: str
+    created_by: str
+    used_by: str | None
+    expires_at: str
+    used_at: str | None
+    created_at: str
+
+
+@dataclass(frozen=True)
 class PromptTemplateRecord:
     """プロンプトテンプレートテーブルのレコード。
 

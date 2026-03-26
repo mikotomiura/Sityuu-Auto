@@ -9,8 +9,9 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from components.theme import inject_custom_theme
-from config import APP_ICON, APP_TITLE
+from config import APP_ICON, APP_TITLE, SESSION_KEY_AUTH_ROLE
 from db_init import get_db_connection
+from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.user_repo import UserRepository
 from utils.auth import get_current_username, logout, require_login
 from utils.logger import setup_logging
@@ -30,7 +31,8 @@ inject_custom_theme()
 # --- 認証ゲート ---
 conn = get_db_connection()
 user_repo = UserRepository(conn)
-require_login(user_repo)
+invitation_repo = InvitationRepository(conn)
+require_login(user_repo, invitation_repo)
 
 # --- 認証済み: サイドバーとナビゲーション ---
 st.sidebar.markdown(
@@ -59,5 +61,12 @@ history_page = st.Page("pages/02_history.py", title="鑑定履歴", icon="\U0001
 clients_page = st.Page("pages/03_clients.py", title="相談者管理", icon="\U0001f465")
 settings_page = st.Page("pages/04_settings.py", title="設定", icon="\u2699\ufe0f")
 
-pg = st.navigation([reading_page, history_page, clients_page, settings_page])
+pages: list[st.Page] = [reading_page, history_page, clients_page, settings_page]
+
+# 管理者ロールの場合のみ管理者ページを追加
+if st.session_state.get(SESSION_KEY_AUTH_ROLE) == "admin":
+    admin_page = st.Page("pages/05_admin.py", title="管理", icon="\U0001f6e0\ufe0f")
+    pages.append(admin_page)
+
+pg = st.navigation(pages)
 pg.run()
