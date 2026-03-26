@@ -9,10 +9,13 @@ import streamlit.components.v1 as components
 _AUTOCOMPLETE_OFF_JS = """
 <script>
 (function() {
+    // st.components.v1.html() は iframe 内で実行されるため、
+    // window.parent.document で Streamlit メインページの DOM にアクセスする
+    const parentDoc = window.parent.document;
+
     const disableAutocomplete = () => {
-        // テキスト入力・テキストエリア・パスワード以外のinputに適用
         const selectors = 'input[type="text"], input:not([type]), textarea';
-        document.querySelectorAll(selectors).forEach(el => {
+        parentDoc.querySelectorAll(selectors).forEach(el => {
             // "new-password" はほとんどのブラウザで autocomplete を確実に無効化する
             el.setAttribute('autocomplete', 'new-password');
         });
@@ -21,7 +24,7 @@ _AUTOCOMPLETE_OFF_JS = """
     disableAutocomplete();
     // DOM変更時にも再適用（Streamlitの動的レンダリングに対応）
     const observer = new MutationObserver(disableAutocomplete);
-    observer.observe(document.body, {childList: true, subtree: true});
+    observer.observe(parentDoc.body, {childList: true, subtree: true});
 })();
 </script>
 """
@@ -31,11 +34,11 @@ def inject_autocomplete_off() -> None:
     """全入力欄のブラウザ autocomplete を無効化する。
 
     相談者の名前・悩み等のプライバシー情報がブラウザの入力候補に
-    残らないよう、autocomplete 属性を off に設定する JavaScript を注入する。
+    残らないよう、autocomplete 属性を設定する JavaScript を注入する。
 
-    ``st.components.v1.html()`` を使用して確実に JavaScript を実行する。
-    ``st.markdown`` の ``<script>`` タグは Streamlit バージョンにより
-    除去される可能性があるため、こちらの方式を採用している。
+    ``st.components.v1.html()`` で iframe を生成し、その中から
+    ``window.parent.document`` 経由でメインページの入力欄に
+    ``autocomplete="new-password"`` を設定する。
 
     Note:
         注入する HTML はハードコードされた固定スクリプトのみであり、
