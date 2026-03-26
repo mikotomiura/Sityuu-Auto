@@ -33,17 +33,6 @@ header[data-testid="stHeader"] {{
     backdrop-filter: none !important;
 }}
 
-/* ===== 非表示iframeコンテナ（autocomplete無効化JS用）===== */
-/* display:none はJS実行を阻害するため使用しない */
-div:has(> iframe[height="0"]) {{
-    height: 0 !important;
-    min-height: 0 !important;
-    max-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    border: none !important;
-}}
 
 /* ===== サイドバー ===== */
 section[data-testid="stSidebar"] {{
