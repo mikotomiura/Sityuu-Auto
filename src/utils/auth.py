@@ -144,7 +144,7 @@ def render_login_form(user_repo: UserRepository) -> None:
                 "ユーザー名",
                 placeholder="username",
                 key=f"login_user_{form_id}",
-                autocomplete="off",
+                autocomplete="one-time-code",
             )
             password = st.text_input(
                 "パスワード",

@@ -135,7 +135,7 @@ def _render_api_settings() -> None:
         value=current_model,
         placeholder=default_model,
         help=f"デフォルト: {default_model}",
-        autocomplete="off",
+        autocomplete="one-time-code",
     )
 
     if model_input != current_model:
@@ -191,7 +191,7 @@ def _render_account_settings() -> None:
             "現在のパスワード",
             type="password",
             disabled=pw_locked,
-            autocomplete="off",
+            autocomplete="one-time-code",
         )
         new_pw = st.text_input(
             "新しいパスワード",
@@ -269,7 +269,7 @@ def _render_account_settings() -> None:
                 type="password",
                 placeholder="新しいAPIキーを入力（空欄で削除）",
                 key=f"api_key_input_{provider}",
-                autocomplete="off",
+                autocomplete="one-time-code",
             )
             key_submitted = st.form_submit_button("保存", use_container_width=True)
 
@@ -382,12 +382,12 @@ def _render_create_form(repo: PromptTemplateRepository) -> None:
         name = st.text_input(
             "テンプレート名",
             placeholder="例: 恋愛相談向けテンプレート",
-            autocomplete="off",
+            autocomplete="one-time-code",
         )
         description = st.text_input(
             "説明（任意）",
             placeholder="このテンプレートの用途",
-            autocomplete="off",
+            autocomplete="one-time-code",
         )
         system_prompt = st.text_area(
             "システムプロンプト",
@@ -428,8 +428,16 @@ def _render_edit_form(
         tmpl: 編集対象のテンプレートレコード。
     """
     with st.form(f"edit_form_{tmpl.id}"):
-        name = st.text_input("テンプレート名", value=tmpl.name, autocomplete="off")
-        description = st.text_input("説明", value=tmpl.description or "", autocomplete="off")
+        name = st.text_input(
+            "テンプレート名",
+            value=tmpl.name,
+            autocomplete="one-time-code",
+        )
+        description = st.text_input(
+            "説明",
+            value=tmpl.description or "",
+            autocomplete="one-time-code",
+        )
         system_prompt = st.text_area(
             "システムプロンプト",
             value=tmpl.system_prompt,
