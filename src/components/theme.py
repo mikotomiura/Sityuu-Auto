@@ -34,16 +34,15 @@ header[data-testid="stHeader"] {{
 }}
 
 /* ===== 非表示iframeコンテナ（autocomplete無効化JS用）===== */
-iframe[height="0"] {{
-    display: none !important;
-}}
+/* display:none はJS実行を阻害するため使用しない */
 div:has(> iframe[height="0"]) {{
     height: 0 !important;
     min-height: 0 !important;
+    max-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
-    position: absolute !important;
+    border: none !important;
 }}
 
 /* ===== サイドバー ===== */
@@ -79,6 +78,17 @@ section[data-testid="stSidebar"] h1 {{
 
 .stApp h3, .stApp h4 {{
     color: {_ACCENT_SILVER} !important;
+}}
+
+/* ===== フォームラベル ===== */
+.stTextInput label,
+.stTextArea label,
+.stSelectbox label,
+.stDateInput label,
+.stTimeInput label,
+.stCheckbox label,
+.stNumberInput label {{
+    color: {_TEXT_PRIMARY} !important;
 }}
 
 /* ===== テキスト入力・テキストエリア ===== */
