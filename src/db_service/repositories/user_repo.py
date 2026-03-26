@@ -33,6 +33,7 @@ def _row_to_user_record(row: sqlite3.Row) -> UserRecord:
         preferred_provider=row["preferred_provider"],
         preferred_model=row["preferred_model"],
         role=row["role"],
+        display_name=row["display_name"] if "display_name" in row.keys() else None,
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -230,6 +231,36 @@ class UserRepository:
         updated = cursor.rowcount > 0
         if updated:
             logger.info("パスワードを更新: user_id=%s", user_id)
+        return updated
+
+    def update_display_name(self, user_id: str, display_name: str) -> bool:
+        """表示名を更新する。
+
+        Args:
+            user_id: ユーザーの UUID。
+            display_name: 新しい表示名。
+
+        Returns:
+            更新成功なら True。
+
+        Raises:
+            DatabaseError: 更新に失敗した場合。
+        """
+        now = datetime.now().isoformat()
+
+        try:
+            cursor = self._conn.execute(
+                "UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?",
+                (display_name.strip(), now, user_id),
+            )
+            self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error("表示名更新失敗: %s", e)
+            raise DatabaseError("表示名の更新に失敗しました") from e
+
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.info("表示名を更新: user_id=%s", user_id)
         return updated
 
     def get_api_key(self, user_id: str, provider: str) -> str | None:

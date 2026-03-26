@@ -72,12 +72,13 @@ class UserRecord:
 
     Attributes:
         id: UUID 文字列。
-        username: ユーザー名（ユニーク）。
+        username: ログイン用アカウントID（ユニーク）。
         password_hash: bcrypt ハッシュ化されたパスワード。
         api_keys_json: プロバイダー別APIキーのJSON文字列。
         preferred_provider: 優先APIプロバイダー。
         preferred_model: 優先モデル名。
         role: ユーザーロール（"admin" または "user"）。
+        display_name: UI上の表示名。未設定の場合は None（usernameで代替）。
         created_at: 作成日時（ISO 8601 形式）。
         updated_at: 更新日時（ISO 8601 形式）。
     """
@@ -89,6 +90,7 @@ class UserRecord:
     preferred_provider: str | None
     preferred_model: str | None
     role: str
+    display_name: str | None
     created_at: str
     updated_at: str
 

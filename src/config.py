@@ -29,6 +29,7 @@ SESSION_KEY_CLIENTS_EDIT_SUCCESS = "client_edit_success"
 SESSION_KEY_AUTH_USER_ID = "auth_user_id"
 SESSION_KEY_AUTH_USERNAME = "auth_username"
 SESSION_KEY_AUTH_ROLE = "auth_role"
+SESSION_KEY_AUTH_DISPLAY_NAME = "auth_display_name"
 SESSION_KEY_AUTH_FAIL_COUNT = "auth_fail_count"
 
 # --- パスワードポリシー ---

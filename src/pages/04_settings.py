@@ -22,6 +22,7 @@ from db_init import get_db_connection
 from db_service.models import PromptTemplateRecord
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
 from db_service.repositories.user_repo import UserRepository, verify_password
+from config import SESSION_KEY_AUTH_DISPLAY_NAME
 from utils.auth import get_current_user_id
 from utils.exceptions import DatabaseError
 from utils.privacy import inject_autocomplete_off
@@ -124,7 +125,7 @@ def _render_api_settings() -> None:
     else:
         env_var = API_KEY_ENV_MAP.get(selected_provider, "")
         st.warning(
-            f"APIキーが未設定です。「アカウント設定」タブで個人キーを登録するか、"
+            f"APIキーが未設定です。下部の「APIキーの管理」で個人キーを登録するか、"
             f"`.env` ファイルに `{env_var}` を設定してください。"
         )
 
@@ -159,9 +160,63 @@ def _render_api_settings() -> None:
     key_source = "個人キー" if user_key else ("システム" if has_system_key else "未設定")
     col3.metric("APIキー", key_source)
 
+    # --- APIキー管理（BYOK） ---
+    st.markdown("---")
+    st.header("APIキーの管理（BYOK）")
+    st.caption(
+        "各プロバイダーのAPIキーを登録すると、システムのAPIキーよりも優先して使用されます。"
+        "空欄にして保存するとキーを削除できます。"
+    )
+
+    # 現在登録されているキーを取得
+    current_keys: dict[str, str] = {}
+    if user_id:
+        user = user_repo.find_by_id(user_id)
+        if user and user.api_keys_json:
+            try:
+                current_keys = json.loads(user.api_keys_json)
+            except (json.JSONDecodeError, TypeError):
+                current_keys = {}
+
+    for provider in SUPPORTED_PROVIDERS:
+        label = _PROVIDER_LABELS.get(provider, provider)
+        current_value = current_keys.get(provider, "")
+        display_value = f"****{current_value[-4:]}" if current_value else ""
+
+        with st.form(f"api_key_form_{provider}"):
+            st.subheader(label)
+            if current_value:
+                st.caption(f"登録済み: {display_value}")
+            else:
+                has_system = _check_system_api_key(provider)
+                if has_system:
+                    st.caption("個人キー未登録（システムキーを使用中）")
+                else:
+                    st.caption("未登録")
+
+            new_key = st.text_input(
+                f"{label} APIキー",
+                type="password",
+                placeholder="新しいAPIキーを入力（空欄で削除）",
+                key=f"api_key_input_{provider}",
+                autocomplete="one-time-code",
+            )
+            key_submitted = st.form_submit_button("保存", use_container_width=True)
+
+            if key_submitted and user_id:
+                try:
+                    user_repo.update_api_key(user_id, provider, new_key)
+                    if new_key:
+                        st.success(f"{label} のAPIキーを更新しました。")
+                    else:
+                        st.success(f"{label} のAPIキーを削除しました。")
+                    st.rerun()
+                except DatabaseError:
+                    st.error("APIキーの更新に失敗しました。")
+
 
 def _render_account_settings() -> None:
-    """アカウント設定セクション（パスワード変更・APIキー管理）を表示する。"""
+    """アカウント設定セクション（アカウント情報・表示名変更・パスワード変更）を表示する。"""
     user_id = get_current_user_id()
     if not user_id:
         st.error("ログインが必要です。")
@@ -174,7 +229,49 @@ def _render_account_settings() -> None:
         st.error("ユーザー情報の取得に失敗しました。")
         return
 
+    # --- アカウント情報 ---
+    st.header("アカウント情報")
+    st.text_input("アカウントID（変更不可）", value=user.username, disabled=True)
+    st.caption("ログイン時に使用するIDです。変更はできません。")
+
+    # --- 表示名の変更 ---
+    st.markdown("---")
+    st.header("表示名の変更")
+    st.caption("サイドバーや画面上に表示される名前を変更できます。")
+
+    current_display = user.display_name or user.username
+    with st.form("change_display_name_form"):
+        new_display_name = st.text_input(
+            "表示名",
+            value=current_display,
+            max_chars=50,
+            placeholder="画面上に表示する名前",
+            autocomplete="one-time-code",
+        )
+        display_submitted = st.form_submit_button(
+            "表示名を変更", use_container_width=True
+        )
+
+        if display_submitted:
+            stripped_name = new_display_name.strip()
+            if not stripped_name:
+                st.error("表示名を入力してください。")
+            elif stripped_name == current_display:
+                st.info("表示名に変更はありません。")
+            else:
+                try:
+                    result = user_repo.update_display_name(user_id, stripped_name)
+                    if result:
+                        st.session_state[SESSION_KEY_AUTH_DISPLAY_NAME] = stripped_name
+                        st.success(f"表示名を「{stripped_name}」に変更しました。")
+                        st.rerun()
+                    else:
+                        st.error("表示名の変更に失敗しました。")
+                except DatabaseError:
+                    st.error("表示名の変更に失敗しました。")
+
     # --- パスワード変更 ---
+    st.markdown("---")
     st.header("パスワードの変更")
 
     pw_fails = st.session_state.get(_PW_CHANGE_FAIL_KEY, 0)
@@ -229,60 +326,6 @@ def _render_account_settings() -> None:
                         st.error("パスワードの変更に失敗しました。")
                 except DatabaseError:
                     st.error("パスワードの変更に失敗しました。")
-
-    st.markdown("---")
-
-    # --- APIキー管理（BYOK） ---
-    st.header("APIキーの管理（BYOK）")
-    st.caption(
-        "各プロバイダーのAPIキーを登録すると、システムのAPIキーよりも優先して使用されます。"
-        "空欄にして保存するとキーを削除できます。"
-    )
-
-    # 現在登録されているキーを取得
-    current_keys: dict[str, str] = {}
-    if user.api_keys_json:
-        try:
-            current_keys = json.loads(user.api_keys_json)
-        except (json.JSONDecodeError, TypeError):
-            current_keys = {}
-
-    for provider in SUPPORTED_PROVIDERS:
-        label = _PROVIDER_LABELS.get(provider, provider)
-        current_value = current_keys.get(provider, "")
-        # マスク表示
-        display_value = f"****{current_value[-4:]}" if current_value else ""
-
-        with st.form(f"api_key_form_{provider}"):
-            st.subheader(label)
-            if current_value:
-                st.caption(f"登録済み: {display_value}")
-            else:
-                has_system = _check_system_api_key(provider)
-                if has_system:
-                    st.caption("個人キー未登録（システムキーを使用中）")
-                else:
-                    st.caption("未登録")
-
-            new_key = st.text_input(
-                f"{label} APIキー",
-                type="password",
-                placeholder="新しいAPIキーを入力（空欄で削除）",
-                key=f"api_key_input_{provider}",
-                autocomplete="one-time-code",
-            )
-            key_submitted = st.form_submit_button("保存", use_container_width=True)
-
-            if key_submitted:
-                try:
-                    user_repo.update_api_key(user_id, provider, new_key)
-                    if new_key:
-                        st.success(f"{label} のAPIキーを更新しました。")
-                    else:
-                        st.success(f"{label} のAPIキーを削除しました。")
-                    st.rerun()
-                except DatabaseError:
-                    st.error("APIキーの更新に失敗しました。")
 
 
 def _render_template_list(repo: PromptTemplateRepository) -> None:

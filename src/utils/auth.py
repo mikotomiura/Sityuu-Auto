@@ -15,6 +15,7 @@ from config import (
     PASSWORD_MIN_LENGTH,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
+    SESSION_KEY_AUTH_DISPLAY_NAME,
     SESSION_KEY_AUTH_FAIL_COUNT,
     SESSION_KEY_AUTH_ROLE,
     SESSION_KEY_AUTH_USER_ID,
@@ -49,6 +50,18 @@ def get_current_user_id() -> str | None:
     return st.session_state.get(SESSION_KEY_AUTH_USER_ID)
 
 
+def get_current_display_name() -> str | None:
+    """現在のログインユーザーの表示名を取得する。
+
+    Returns:
+        表示名。未ログインの場合は None。
+    """
+    return st.session_state.get(
+        SESSION_KEY_AUTH_DISPLAY_NAME,
+        st.session_state.get(SESSION_KEY_AUTH_USERNAME),
+    )
+
+
 def get_current_username() -> str | None:
     """現在のログインユーザー名を取得する。
 
@@ -81,6 +94,7 @@ def logout(auth_session_repo: AuthSessionRepository | None = None) -> None:
         SESSION_KEY_AUTH_USER_ID,
         SESSION_KEY_AUTH_USERNAME,
         SESSION_KEY_AUTH_ROLE,
+        SESSION_KEY_AUTH_DISPLAY_NAME,
         SESSION_KEY_AUTH_FAIL_COUNT,
         SESSION_KEY_API_PROVIDER,
         SESSION_KEY_API_MODEL,
@@ -97,6 +111,9 @@ def _restore_session_from_user(user: UserRecord) -> None:
     st.session_state[SESSION_KEY_AUTH_USER_ID] = user.id
     st.session_state[SESSION_KEY_AUTH_USERNAME] = user.username
     st.session_state[SESSION_KEY_AUTH_ROLE] = user.role
+    st.session_state[SESSION_KEY_AUTH_DISPLAY_NAME] = (
+        user.display_name or user.username
+    )
     if user.preferred_provider:
         st.session_state[SESSION_KEY_API_PROVIDER] = user.preferred_provider
     if user.preferred_model:

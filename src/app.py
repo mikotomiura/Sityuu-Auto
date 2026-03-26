@@ -14,7 +14,7 @@ from db_init import get_db_connection
 from db_service.repositories.auth_session_repo import AuthSessionRepository
 from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.user_repo import UserRepository
-from utils.auth import get_current_username, logout, require_login
+from utils.auth import get_current_display_name, logout, require_login
 from utils.logger import setup_logging
 
 load_dotenv()
@@ -68,8 +68,8 @@ st.sidebar.caption("四柱推命・算命学 AI鑑定支援ツール")
 st.sidebar.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
 
 # ログインユーザー情報とログアウト
-username = get_current_username()
-st.sidebar.markdown(f"**ログイン中:** {username}")
+display_name = get_current_display_name()
+st.sidebar.markdown(f"**ログイン中:** {display_name}")
 if st.sidebar.button("ログアウト", use_container_width=True):
     logout(auth_session_repo)
     st.rerun()

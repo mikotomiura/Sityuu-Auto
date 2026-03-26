@@ -123,6 +123,7 @@ class AuthSessionRepository:
             preferred_provider=row["preferred_provider"],
             preferred_model=row["preferred_model"],
             role=row["role"],
+            display_name=row["display_name"] if "display_name" in row.keys() else None,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
