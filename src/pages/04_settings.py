@@ -154,11 +154,19 @@ def _render_api_settings() -> None:
     st.markdown("---")
     st.subheader("現在の設定")
 
+    provider_label = _PROVIDER_LABELS.get(selected_provider, selected_provider)
+    model_display = model_input or default_model
+    if user_key:
+        key_source = "✅ 個人キー設定済み"
+    elif has_system_key:
+        key_source = "✅ 共通キーで利用可能"
+    else:
+        key_source = "⚠️ 未設定"
+
     col1, col2, col3 = st.columns(3)
-    col1.metric("プロバイダー", selected_provider)
-    col2.metric("モデル", model_input or default_model)
-    key_source = "個人キー" if user_key else ("システム" if has_system_key else "未設定")
-    col3.metric("APIキー", key_source)
+    col1.markdown(f"**プロバイダー**<br>`{provider_label}`", unsafe_allow_html=True)
+    col2.markdown(f"**モデル**<br>`{model_display}`", unsafe_allow_html=True)
+    col3.markdown(f"**APIキー**<br>{key_source}", unsafe_allow_html=True)
 
     # --- APIキー管理（BYOK） ---
     st.markdown("---")

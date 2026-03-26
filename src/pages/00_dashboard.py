@@ -72,9 +72,9 @@ def _render_stats(
             user_repo = UserRepository(conn)
             user_key = user_repo.get_api_key(user_id, provider)
             if user_key:
-                api_status = "個人キー"
+                api_status = "設定済み"
             elif os.environ.get(API_KEY_ENV_MAP.get(provider, ""), ""):
-                api_status = "システム"
+                api_status = "利用可能"
         except DatabaseError:
             pass
 
