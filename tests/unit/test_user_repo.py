@@ -12,7 +12,7 @@ from db_service.repositories.user_repo import (
     hash_password,
     verify_password,
 )
-from utils.exceptions import AuthenticationError, DatabaseError
+from utils.exceptions import AuthenticationError, DatabaseError, ValidationError
 
 
 @pytest.fixture()
@@ -397,3 +397,107 @@ class TestUserRepositoryEdgeCases:
         assert user.username == malicious
         # usersテーブルが存在し続けることを確認
         assert user_repo.count() >= 1
+
+
+class TestUserRepositoryUpdateDisplayName:
+    """表示名更新のテスト。"""
+
+    def test_update_display_name_success(self, user_repo: UserRepository) -> None:
+        """表示名を正常に更新できること。"""
+        user_id = user_repo.create("testuser", "password123")
+        result = user_repo.update_display_name(user_id, "テスト表示名")
+        assert result is True
+
+        user = user_repo.find_by_id(user_id)
+        assert user is not None
+        assert user.display_name == "テスト表示名"
+
+    def test_update_display_name_strips_whitespace(self, user_repo: UserRepository) -> None:
+        """前後の空白がトリムされること。"""
+        user_id = user_repo.create("testuser", "password123")
+        user_repo.update_display_name(user_id, "  表示名  ")
+
+        user = user_repo.find_by_id(user_id)
+        assert user is not None
+        assert user.display_name == "表示名"
+
+    def test_update_display_name_50_chars_succeeds(self, user_repo: UserRepository) -> None:
+        """ちょうど50文字の表示名が成功すること。"""
+        user_id = user_repo.create("testuser", "password123")
+        name_50 = "あ" * 50
+        result = user_repo.update_display_name(user_id, name_50)
+        assert result is True
+
+    def test_update_display_name_51_chars_raises_validation_error(
+        self, user_repo: UserRepository
+    ) -> None:
+        """51文字の表示名でValidationErrorが発生すること。"""
+        user_id = user_repo.create("testuser", "password123")
+        name_51 = "あ" * 51
+        with pytest.raises(ValidationError, match="50文字以内"):
+            user_repo.update_display_name(user_id, name_51)
+
+    def test_update_display_name_nonexistent_user_returns_false(
+        self, user_repo: UserRepository
+    ) -> None:
+        """存在しないユーザーIDでFalseが返ること。"""
+        result = user_repo.update_display_name("nonexistent-id", "名前")
+        assert result is False
+
+    def test_update_display_name_updates_timestamp(
+        self, user_repo: UserRepository
+    ) -> None:
+        """更新時にupdated_atが変更されること。"""
+        user_id = user_repo.create("testuser", "password123")
+        user_before = user_repo.find_by_id(user_id)
+
+        user_repo.update_display_name(user_id, "新しい名前")
+        user_after = user_repo.find_by_id(user_id)
+
+        assert user_before is not None
+        assert user_after is not None
+        assert user_after.updated_at >= user_before.updated_at
+
+
+class TestUserRepositoryFindAll:
+    """全ユーザー取得のテスト。"""
+
+    def test_find_all_empty(self, user_repo: UserRepository) -> None:
+        """ユーザーなしで空リストが返ること。"""
+        users = user_repo.find_all()
+        assert users == []
+
+    def test_find_all_returns_all_users(self, user_repo: UserRepository) -> None:
+        """作成したユーザーが全件返ること。"""
+        user_repo.create("user1", "pw1")
+        user_repo.create("user2", "pw2")
+        user_repo.create("user3", "pw3")
+        users = user_repo.find_all()
+        assert len(users) == 3
+
+    def test_find_all_ordered_by_created_at_desc(
+        self, db_conn: sqlite3.Connection, user_repo: UserRepository
+    ) -> None:
+        """created_at降順でソートされること。"""
+        user_repo.create("first", "pw1")
+        user_repo.create("second", "pw2")
+        user_repo.create("third", "pw3")
+        # タイムスタンプを明示的に設定してソート順を保証
+        users = user_repo.find_all()
+        db_conn.execute(
+            "UPDATE users SET created_at = ? WHERE username = ?",
+            ("2026-01-01T00:00:00", "first"),
+        )
+        db_conn.execute(
+            "UPDATE users SET created_at = ? WHERE username = ?",
+            ("2026-01-02T00:00:00", "second"),
+        )
+        db_conn.execute(
+            "UPDATE users SET created_at = ? WHERE username = ?",
+            ("2026-01-03T00:00:00", "third"),
+        )
+        db_conn.commit()
+        users = user_repo.find_all()
+        # 最新のユーザーが先頭
+        assert users[0].username == "third"
+        assert users[-1].username == "first"

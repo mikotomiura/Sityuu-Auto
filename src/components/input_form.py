@@ -124,7 +124,9 @@ def render_client_input_form() -> ClientInputData | None:
         return None
 
     # バリデーション通過後、birth_date は None でないことが保証されている
-    assert birth_date is not None
+    if birth_date is None:
+        st.error("生年月日を入力してください。")
+        return None
     return ClientInputData(
         name=name.strip(),
         name_kana=name_kana.strip() if name_kana.strip() else None,

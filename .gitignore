@@ -1,6 +1,10 @@
 # 環境変数（秘匿情報）
 .env
 
+# 秘密鍵・証明書
+*.pem
+*.key
+
 # ローカルデータ
 data/fortune.sqlite3
 data/*.sqlite3
@@ -35,9 +39,5 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
-
-
-
-
 
 

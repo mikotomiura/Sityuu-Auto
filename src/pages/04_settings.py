@@ -15,6 +15,7 @@ from config import (
     PROVIDER_DEFAULT_MODELS,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
+    SESSION_KEY_AUTH_DISPLAY_NAME,
     SESSION_KEY_PII_ANONYMIZE,
     SESSION_KEY_TEMPLATE_EDIT_ID,
     SUPPORTED_PROVIDERS,
@@ -23,9 +24,8 @@ from db_init import get_db_connection
 from db_service.models import PromptTemplateRecord
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
 from db_service.repositories.user_repo import UserRepository, verify_password
-from config import SESSION_KEY_AUTH_DISPLAY_NAME
 from utils.auth import get_current_user_id
-from utils.exceptions import DatabaseError
+from utils.exceptions import DatabaseError, ValidationError
 from utils.privacy import inject_autocomplete_off
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ def _render_api_settings() -> None:
         st.success(f"APIキーが登録済みです（{selected_provider}）。")
     else:
         st.warning(
-            f"APIキーが未設定です。下部の「APIキーの管理」から登録してください。"
+            "APIキーが未設定です。下部の「APIキーの管理」から登録してください。"
         )
 
     # --- モデル設定 ---
@@ -264,6 +264,8 @@ def _render_account_settings() -> None:
                         st.rerun()
                     else:
                         st.error("表示名の変更に失敗しました。")
+                except ValidationError as e:
+                    st.warning(str(e))
                 except DatabaseError:
                     st.error("表示名の変更に失敗しました。")
 

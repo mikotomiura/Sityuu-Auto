@@ -1,7 +1,6 @@
 """鑑定ページ — 相談者情報の入力から鑑定結果の表示まで。"""
 
 import logging
-import os
 
 import streamlit as st
 

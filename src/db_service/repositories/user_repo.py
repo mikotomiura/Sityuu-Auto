@@ -11,7 +11,7 @@ from datetime import datetime
 import bcrypt
 
 from db_service.models import UserRecord
-from utils.exceptions import AuthenticationError, DatabaseError
+from utils.exceptions import AuthenticationError, DatabaseError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _row_to_user_record(row: sqlite3.Row) -> UserRecord:
         preferred_provider=row["preferred_provider"],
         preferred_model=row["preferred_model"],
         role=row["role"],
-        display_name=row["display_name"] if "display_name" in row.keys() else None,
+        display_name=row["display_name"] if "display_name" in row.keys() else None,  # noqa: SIM118, SIM401
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -244,10 +244,11 @@ class UserRepository:
             更新成功なら True。
 
         Raises:
-            DatabaseError: 更新に失敗した場合、または50文字超の場合。
+            ValidationError: 表示名が50文字を超える場合。
+            DatabaseError: 更新に失敗した場合。
         """
         if len(display_name.strip()) > 50:
-            raise DatabaseError("表示名は50文字以内で入力してください")
+            raise ValidationError("表示名は50文字以内で入力してください")
         now = datetime.now().isoformat()
 
         try:

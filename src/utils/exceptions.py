@@ -17,6 +17,10 @@ class AIServiceConfigError(AIServiceError):
     """AI連携設定エラー（APIキー未設定・認証失敗など）。"""
 
 
+class ValidationError(FortuneAppError):
+    """入力バリデーションエラー。"""
+
+
 class DatabaseError(FortuneAppError):
     """DB操作エラー。"""
 

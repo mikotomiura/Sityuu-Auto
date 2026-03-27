@@ -5,10 +5,9 @@
 """
 
 import logging
+from functools import lru_cache
 from pathlib import Path
 from string import Template
-
-from functools import lru_cache
 
 from ai_service.pii_sanitizer import sanitize_for_prompt
 
