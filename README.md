@@ -182,6 +182,7 @@ src/
 ├── config.py                 # アプリケーション設定・セッションキー定義
 ├── db_init.py                # DB接続キャッシュ・初期データ投入
 ├── pages/
+│   ├── 00_dashboard.py       # ダッシュボードページ（統計・概要表示）
 │   ├── 01_reading.py         # 鑑定ページ（入力→算出→AI生成→表示）
 │   ├── 02_history.py         # 鑑定履歴ページ（一覧・検索・詳細）
 │   ├── 03_clients.py         # 相談者管理ページ（CRUD）
@@ -214,7 +215,8 @@ src/
 │   │   ├── session_repo.py   # 鑑定セッションリポジトリ
 │   │   ├── prompt_template_repo.py # テンプレートリポジトリ
 │   │   ├── user_repo.py      # ユーザーリポジトリ（認証・BYOK）
-│   │   └── invitation_repo.py # 招待トークンリポジトリ
+│   │   ├── invitation_repo.py # 招待トークンリポジトリ
+│   │   └── auth_session_repo.py # 認証セッションリポジトリ
 │   └── migrations/           # SQLマイグレーション
 └── utils/                    # 共通ユーティリティ
     ├── auth.py               # 認証（ログイン・セッション管理）
@@ -230,7 +232,8 @@ scripts/
 └── seed_data.py              # テストデータ投入スクリプト
 
 tests/
-├── unit/                     # ユニットテスト（253件）
+├── unit/                     # ユニットテスト（306件）
+├── fixtures/                 # テスト用フィクスチャ
 └── integration/              # 統合テスト
 ```
 
