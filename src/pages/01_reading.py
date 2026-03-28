@@ -36,7 +36,7 @@ from db_service.repositories.session_repo import SessionRepository
 from db_service.repositories.user_repo import UserRepository
 from fortune_engine import calculate_fortune, format_for_ai_prompt
 from fortune_engine.models import FortuneResult
-from utils.auth import get_current_user_id
+from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import (
     AIServiceConfigError,
     AIServiceError,
@@ -183,6 +183,7 @@ def _save_session_to_db(
 
 def main() -> None:
     """鑑定ページのメイン処理。"""
+    require_page_auth()
     _initialize_state()
 
     st.title("鑑定")

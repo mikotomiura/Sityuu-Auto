@@ -13,7 +13,7 @@ from config import (
 from db_init import get_db_connection
 from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.user_repo import UserRepository
-from utils.auth import get_current_user_id
+from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,7 @@ def _require_admin() -> bool:
     Returns:
         管理者なら True。非管理者の場合はエラー表示して False。
     """
+    require_page_auth()
     role = st.session_state.get(SESSION_KEY_AUTH_ROLE)
     if role != "admin":
         st.error("このページは管理者のみアクセスできます。")
@@ -202,7 +203,7 @@ def _render_invitation_management(invitation_repo: InvitationRepository) -> None
 
             if not is_used and not is_expired:
                 base_url = st.context.headers.get("Origin", "http://localhost:8501")
-                invite_url = f"{base_url}/?token={inv.token}"
+                invite_url = f"{base_url}/?{INVITATION_TOKEN_QUERY_PARAM}={inv.token}"
                 st.code(invite_url, language=None)
 
             if st.button("削除", key=f"del_inv_{inv.id}", use_container_width=True):

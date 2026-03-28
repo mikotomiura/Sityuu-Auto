@@ -1,8 +1,8 @@
 """相談者管理ページ — 相談者の一覧表示・検索・詳細閲覧・情報編集。
 
 Note:
-    本ページは app.py 経由でのみアクセスされる前提。
-    認証は app.py の require_login() で実施済み。
+    認証は app.py の require_login() に加え、ページ冒頭の
+    require_page_auth() で二重チェックする（防御深度）。
 """
 
 import html
@@ -20,6 +20,7 @@ from config import (
 from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
+from utils.auth import require_page_auth
 from utils.exceptions import DatabaseError
 from utils.privacy import inject_autocomplete_off
 
@@ -313,6 +314,7 @@ def _render_detail_view(
 
 def main() -> None:
     """相談者管理ページのメイン処理。"""
+    require_page_auth()
     _initialize_state()
     inject_autocomplete_off()
 

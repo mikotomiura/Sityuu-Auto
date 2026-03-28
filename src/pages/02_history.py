@@ -1,8 +1,8 @@
 """鑑定履歴ページ — 過去の鑑定セッションの一覧・詳細閲覧。
 
 Note:
-    本ページは app.py 経由でのみアクセスされる前提。
-    認証は app.py の require_login() で実施済み。
+    認証は app.py の require_login() に加え、ページ冒頭の
+    require_page_auth() で二重チェックする（防御深度）。
 """
 
 import json
@@ -23,6 +23,7 @@ from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from fortune_engine.models import FortuneResult, NatalChart, SanmeiData
+from utils.auth import require_page_auth
 from utils.exceptions import DatabaseError, PDFExportError
 from utils.privacy import inject_autocomplete_off
 
@@ -243,6 +244,7 @@ def _build_fallback_markdown(
 
 def main() -> None:
     """鑑定履歴ページのメイン処理。"""
+    require_page_auth()
     _initialize_state()
     inject_autocomplete_off()
 

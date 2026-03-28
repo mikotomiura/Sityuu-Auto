@@ -125,6 +125,9 @@ def _try_restore_from_token(
 ) -> bool:
     """クエリパラメータのセッショントークンからログイン状態を復元する。
 
+    復元成功・失敗問わず、URLからセッショントークンパラメータを削除する
+    （Referer漏洩・ブラウザ履歴漏洩の防止）。
+
     Args:
         auth_session_repo: セッションリポジトリ。
 
@@ -147,6 +150,8 @@ def _try_restore_from_token(
         return False
 
     _restore_session_from_user(user)
+    # セキュリティ: トークンをURLから即座に削除（Referer漏洩・履歴漏洩を防止）
+    del st.query_params[SESSION_TOKEN_QUERY_PARAM]
     logger.info("セッショントークンからログイン復元: username=%s", user.username)
     return True
 
@@ -400,6 +405,18 @@ def _render_registration_form(
             st.rerun()
 
 
+def require_page_auth() -> None:
+    """ページ単位の認証チェック（防御深度）。
+
+    app.py の require_login() に加え、各ページが独自に認証状態を検証する。
+    未ログイン時はエラー表示と st.stop() でページ描画を阻止する。
+    """
+    if is_logged_in():
+        return
+    st.error("ログインが必要です。")
+    st.stop()
+
+
 def require_login(
     user_repo: UserRepository,
     invitation_repo: InvitationRepository | None = None,
@@ -421,6 +438,8 @@ def require_login(
 
     # セッショントークンからの復元を試みる
     if auth_session_repo is not None and _try_restore_from_token(auth_session_repo):
+        # rerun でURLからトークンが削除された状態をブラウザに反映する
+        st.rerun()
         return
 
     # 招待トークンによる登録フロー

@@ -1,5 +1,6 @@
 """設定ページ — API設定・プロンプトテンプレート管理・アカウント設定。"""
 
+import html
 import json
 import logging
 import os
@@ -24,7 +25,7 @@ from db_init import get_db_connection
 from db_service.models import PromptTemplateRecord
 from db_service.repositories.prompt_template_repo import PromptTemplateRepository
 from db_service.repositories.user_repo import UserRepository, verify_password
-from utils.auth import get_current_user_id
+from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import DatabaseError, ValidationError
 from utils.privacy import inject_autocomplete_off
 
@@ -158,7 +159,7 @@ def _render_api_settings() -> None:
 
     col1, col2, col3 = st.columns(3)
     col1.markdown(f"**プロバイダー**<br>`{provider_label}`", unsafe_allow_html=True)
-    col2.markdown(f"**モデル**<br>`{model_display}`", unsafe_allow_html=True)
+    col2.markdown(f"**モデル**<br>`{html.escape(model_display)}`", unsafe_allow_html=True)
     col3.markdown(f"**APIキー**<br>{key_source}", unsafe_allow_html=True)
 
     # --- APIキー管理（BYOK） ---
@@ -551,6 +552,7 @@ def _render_edit_form(
 
 def main() -> None:
     """設定ページのメイン処理。"""
+    require_page_auth()
     _initialize_state()
     inject_autocomplete_off()
 

@@ -8,6 +8,7 @@ import logging
 import streamlit as st
 
 from config import (
+    DEFAULT_API_PROVIDER,
     SESSION_KEY_API_PROVIDER,
     SESSION_KEY_AUTH_DISPLAY_NAME,
     SESSION_KEY_AUTH_USERNAME,
@@ -16,7 +17,7 @@ from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from db_service.repositories.user_repo import UserRepository
-from utils.auth import get_current_user_id
+from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
@@ -57,8 +58,6 @@ def _render_stats(
         session_count = 0
 
     # APIキー状態を確認
-    from config import DEFAULT_API_PROVIDER
-
     provider = st.session_state.get(SESSION_KEY_API_PROVIDER, DEFAULT_API_PROVIDER)
     user_id = get_current_user_id()
     api_status = "未設定"
@@ -128,6 +127,7 @@ def _render_quick_actions() -> None:
 
 def main() -> None:
     """ダッシュボードページのメイン処理。"""
+    require_page_auth()
     st.title("ダッシュボード")
     st.markdown(
         '<p class="page-description">'

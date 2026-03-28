@@ -29,6 +29,12 @@ st.set_page_config(
 
 inject_custom_theme()
 
+# --- セキュリティヘッダー: Referer経由のトークン漏洩を防止 ---
+st.markdown(
+    '<meta name="referrer" content="no-referrer">',
+    unsafe_allow_html=True,
+)
+
 # --- 認証ゲート ---
 conn = get_db_connection()
 user_repo = UserRepository(conn)
