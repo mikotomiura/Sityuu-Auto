@@ -125,8 +125,12 @@ def _try_restore_from_token(
 ) -> bool:
     """クエリパラメータのセッショントークンからログイン状態を復元する。
 
-    復元成功・失敗問わず、URLからセッショントークンパラメータを削除する
-    （Referer漏洩・ブラウザ履歴漏洩の防止）。
+    復元成功時はトークンをURLに保持し、session_state揮発時の再復元に備える。
+    復元失敗時（期限切れ等）は無効なトークンをURLから削除する。
+
+    Note:
+        Referer漏洩は app.py の ``<meta name="referrer" content="no-referrer">``
+        で防止済み。トークンをURLに残してもセキュリティリスクは限定的。
 
     Args:
         auth_session_repo: セッションリポジトリ。
@@ -150,8 +154,7 @@ def _try_restore_from_token(
         return False
 
     _restore_session_from_user(user)
-    # セキュリティ: トークンをURLから即座に削除（Referer漏洩・履歴漏洩を防止）
-    del st.query_params[SESSION_TOKEN_QUERY_PARAM]
+    # トークンはURLに保持（session_state揮発時の再復元用）
     logger.info("セッショントークンからログイン復元: username=%s", user.username)
     return True
 
@@ -409,11 +412,25 @@ def require_page_auth() -> None:
     """ページ単位の認証チェック（防御深度）。
 
     app.py の require_login() に加え、各ページが独自に認証状態を検証する。
-    未ログイン時はエラー表示と st.stop() でページ描画を阻止する。
+    未ログイン時はセッション切れの案内を表示し、st.stop() でページ描画を阻止する。
+
+    URLにセッショントークンが残っている場合はページリロードで復元可能なため、
+    リロードボタンを表示してユーザーを誘導する。
     """
     if is_logged_in():
         return
-    st.error("ログインが必要です。")
+
+    has_token = bool(st.query_params.get(SESSION_TOKEN_QUERY_PARAM))
+
+    if has_token:
+        # トークンがURLにある場合、リロードすればapp.pyのrequire_login()で復元される
+        st.warning("セッションの接続が切れました。ページを再読み込みしてください。")
+        if st.button("ページを再読み込み", type="primary", use_container_width=True):
+            st.rerun()
+    else:
+        st.warning("セッションの有効期限が切れました。再度ログインしてください。")
+        st.page_link("app.py", label="ログイン画面へ", icon="\U0001f513", use_container_width=True)
+
     st.stop()
 
 
@@ -438,7 +455,7 @@ def require_login(
 
     # セッショントークンからの復元を試みる
     if auth_session_repo is not None and _try_restore_from_token(auth_session_repo):
-        # rerun でURLからトークンが削除された状態をブラウザに反映する
+        # rerun で session_state が復元された状態をページに反映する
         st.rerun()
         return
 

@@ -240,7 +240,7 @@ class TestTryRestoreFromToken:
         assert _try_restore_from_token(repo) is False
         repo.validate_token.assert_not_called()
 
-    def test_valid_token_restores_and_removes_url(self, mock_st: MagicMock) -> None:
+    def test_valid_token_restores_and_keeps_url(self, mock_st: MagicMock) -> None:
         """有効なトークンでセッション復元��URLからトークン削除。"""
         mock_st.query_params[SESSION_TOKEN_QUERY_PARAM] = "valid-token"
         user = _make_user()
@@ -251,7 +251,7 @@ class TestTryRestoreFromToken:
         result = _try_restore_from_token(repo)
         assert result is True
         assert mock_st.session_state[SESSION_KEY_AUTH_USER_ID] == "user-001"
-        assert SESSION_TOKEN_QUERY_PARAM not in mock_st.query_params
+        assert mock_st.query_params[SESSION_TOKEN_QUERY_PARAM] == "valid-token"
 
     def test_invalid_token_removes_url(self, mock_st: MagicMock) -> None:
         """無効なトークンではFalse＆URLからトークン削除。"""
