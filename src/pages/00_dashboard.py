@@ -103,16 +103,17 @@ def _render_recent_sessions(session_repo: SessionRepository) -> None:
         )
         return
 
-    for session in recent:
+    for item in recent:
+        s = item.session
         with st.container(border=True):
             col_name, col_date = st.columns([3, 1])
             with col_name:
                 concern_preview = (
-                    session.concern[:40] + "…" if len(session.concern) > 40 else session.concern
+                    s.concern[:40] + "…" if len(s.concern) > 40 else s.concern
                 )
-                st.markdown(f"**{session.client_name}** — {concern_preview}")
+                st.markdown(f"**{item.client_name}** — {concern_preview}")
             with col_date:
-                st.caption(session.created_at[:10])
+                st.caption(s.created_at[:10])
 
 
 def _render_quick_actions() -> None:

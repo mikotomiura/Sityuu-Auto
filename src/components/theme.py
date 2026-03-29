@@ -131,8 +131,27 @@ _CUSTOM_CSS = f"""
 /* ===== セレクトボックス ===== */
 .stSelectbox > div > div {{
     background-color: {_BG_INPUT} !important;
+    color: {_TEXT_PRIMARY} !important;
     border: 1px solid {_BORDER_SUBTLE} !important;
     border-radius: 10px !important;
+}}
+
+/* セレクトボックスのドロップダウンメニュー */
+[data-baseweb="popover"] {{
+    background-color: {_BG_CARD} !important;
+}}
+
+[data-baseweb="menu"] {{
+    background-color: {_BG_CARD} !important;
+}}
+
+[data-baseweb="menu"] li {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+
+[data-baseweb="menu"] li:hover {{
+    background-color: {_BG_INPUT} !important;
+    color: {_ACCENT_GOLD} !important;
 }}
 
 /* ===== 日付入力 ===== */
@@ -205,6 +224,16 @@ details[data-testid="stExpander"] {{
     background-color: {_BG_CARD} !important;
     border: 1px solid {_BORDER_SUBTLE} !important;
     border-radius: 12px !important;
+    color: {_TEXT_PRIMARY} !important;
+}}
+
+details[data-testid="stExpander"] summary {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+
+details[data-testid="stExpander"] .stMarkdown p,
+details[data-testid="stExpander"] .stMarkdown li {{
+    color: {_TEXT_PRIMARY} !important;
 }}
 
 /* ===== タブ ===== */
@@ -276,6 +305,25 @@ div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {{
 .stDataFrame {{
     border-radius: 10px !important;
     overflow: hidden;
+}}
+
+/* DataFrame 内セルのテキスト色を明示指定（ダークテーマ上での視認性確保） */
+.stDataFrame [data-testid="stDataFrameResizable"] {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+
+.stDataFrame table {{
+    color: {_TEXT_PRIMARY} !important;
+}}
+
+.stDataFrame th {{
+    color: {_ACCENT_GOLD} !important;
+    background-color: {_BG_CARD} !important;
+}}
+
+.stDataFrame td {{
+    color: {_TEXT_PRIMARY} !important;
+    background-color: {_BG_SECONDARY} !important;
 }}
 
 /* ===== ダウンロードボタン ===== */

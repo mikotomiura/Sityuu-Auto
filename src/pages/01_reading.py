@@ -28,6 +28,7 @@ from config import (
     SESSION_KEY_LISTENING_HINTS,
     SESSION_KEY_PII_ANONYMIZE,
     SESSION_KEY_SELECTED_TEMPLATE,
+    SESSION_KEY_SESSION_SAVED,
 )
 from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
@@ -58,6 +59,7 @@ _READING_STATE_KEYS = (
     SESSION_KEY_CLIENT_BIRTH_DATE,
     SESSION_KEY_CLIENT_BIRTH_TIME,
     SESSION_KEY_CLIENT_GENDER,
+    SESSION_KEY_SESSION_SAVED,
 )
 
 
@@ -351,6 +353,15 @@ def main() -> None:
             # 傾聴ヒントはオプショナル — 失敗しても鑑定結果は表示する
             logger.warning("傾聴ヒントの生成に失敗しました")
 
+        # --- AI生成完了後に自動保存（二重保存防止） ---
+        if not st.session_state.get(SESSION_KEY_SESSION_SAVED):
+            _save_session_to_db(
+                result,
+                st.session_state[SESSION_KEY_AI_RESPONSE],
+                st.session_state.get(SESSION_KEY_LISTENING_HINTS),
+            )
+            st.session_state[SESSION_KEY_SESSION_SAVED] = True
+
     # --- Step 5: 鑑定結果の統合表示 ---
     ai_response: str | None = st.session_state[SESSION_KEY_AI_RESPONSE]
     hints_response: str | None = st.session_state[SESSION_KEY_LISTENING_HINTS]
@@ -364,20 +375,17 @@ def main() -> None:
             client_name=st.session_state.get(SESSION_KEY_CLIENT_NAME),
         )
 
-        # --- 保存ボタン・新規鑑定ボタン ---
+        # --- 保存済み表示・新規鑑定ボタン ---
         st.markdown('<div class="fancy-divider"></div>', unsafe_allow_html=True)
-        col_save, col_new = st.columns(2)
-        with col_save:
-            if st.button("鑑定結果を保存", use_container_width=True):
-                _save_session_to_db(result, ai_response, hints_response)
-        with col_new:
-            if st.button(
-                "新規鑑定を開始",
-                key="new_reading_bottom",
-                use_container_width=True,
-            ):
-                _clear_reading_state()
-                st.rerun()
+        if st.session_state.get(SESSION_KEY_SESSION_SAVED):
+            st.success("鑑定結果は自動的に保存されました。")
+        if st.button(
+            "新規鑑定を開始",
+            key="new_reading_bottom",
+            use_container_width=True,
+        ):
+            _clear_reading_state()
+            st.rerun()
 
 
 main()

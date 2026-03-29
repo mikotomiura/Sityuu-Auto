@@ -8,3 +8,11 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#d4af37"
+backgroundColor = "#0a0e27"
+secondaryBackgroundColor = "#161b4a"
+textColor = "#e8e6f0"
+font = "sans serif"
