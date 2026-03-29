@@ -109,14 +109,21 @@ def _seed_default_admin(conn: sqlite3.Connection) -> None:
 def _initialize_db() -> bool:
     """DB初期化を1度だけ実行する（マイグレーション・初期データ投入）。
 
+    Note:
+        初期化専用コネクションを使用する。initialize_database() 内の
+        executescript() は暗黙の COMMIT を発行するため、このコネクションを
+        通常のリクエスト処理に再利用してはならない。
+
     Returns:
         初期化完了なら True。
     """
     conn = create_connection(DB_PATH)
-    initialize_database(conn)
-    _seed_default_templates(conn)
-    _seed_default_admin(conn)
-    conn.close()
+    try:
+        initialize_database(conn)
+        _seed_default_templates(conn)
+        _seed_default_admin(conn)
+    finally:
+        conn.close()
     return True
 
 
@@ -141,8 +148,14 @@ def get_db_connection() -> sqlite3.Connection:
     if conn is not None:
         try:
             conn.execute("SELECT 1")
+            # 前のリクエストで未コミットのトランザクションが残っていればロールバック
+            # （ページ処理中の例外で commit() に到達しなかったケースの救済）
+            if conn.in_transaction:
+                logger.warning("未コミットトランザクションを検出、ロールバックします")
+                conn.rollback()
             return conn
-        except sqlite3.Error:
+        except sqlite3.Error as e:
+            logger.warning("DB接続の検証またはロールバックに失敗: %s", e)
             conn = None
 
     conn = create_connection(DB_PATH)

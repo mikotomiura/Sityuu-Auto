@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 _MIGRATION_FILENAME_PATTERN = re.compile(r"^\d{3}_[\w]+\.sql$")
 
+# SQLite ロック待ち時間（秒）— マルチスレッド環境での書き込み競合に対応
+_DB_LOCK_TIMEOUT_SECONDS = 30
+
 # 旧拡張子 .db → .sqlite3 への移行マッピング
 _OLD_DB_EXTENSION = ".db"
 
@@ -40,15 +43,27 @@ def create_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
         # 旧拡張子(.db)のファイルが存在し、新ファイルが未作成の場合は自動リネーム
         _migrate_old_db_file(db_path)
 
-        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        conn = sqlite3.connect(
+            str(db_path),
+            check_same_thread=False,
+            timeout=_DB_LOCK_TIMEOUT_SECONDS,
+        )
 
         # 個人情報を含むDBファイルのパーミッションを所有者のみに制限
         if db_path.exists() and os.name != "nt":
             db_path.chmod(0o600)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
+
+        # WALモードを有効化（並行読み取り + 単一書き込みを高速化）
+        result = conn.execute("PRAGMA journal_mode=WAL").fetchone()
+        if not result:
+            logger.warning("PRAGMA journal_mode=WAL の結果を取得できませんでした")
+        elif result[0] != "wal":
+            logger.warning("WALモード設定失敗: 現在のモード=%s", result[0])
+
         conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("PRAGMA busy_timeout=5000")
+        # busy_timeout: SQLiteエンジンレベルのロック待機（Pythonのtimeoutと二重防御）
+        conn.execute("PRAGMA busy_timeout=%d" % (_DB_LOCK_TIMEOUT_SECONDS * 1000))
 
         logger.info("DB接続を作成: %s", db_path)
         return conn
