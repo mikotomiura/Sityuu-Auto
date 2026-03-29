@@ -128,7 +128,7 @@ def _save_session_to_db(
     result: FortuneResult,
     ai_text: str | None,
     listening_hints: str | None,
-) -> None:
+) -> bool:
     """鑑定結果をDBに保存する。
 
     相談者をclientsテーブルに、セッションをsessionsテーブルに保存する。
@@ -137,6 +137,9 @@ def _save_session_to_db(
         result: 命式算出結果。
         ai_text: AI鑑定テキスト。
         listening_hints: 傾聴ヒントテキスト。
+
+    Returns:
+        保存成功なら True、失敗なら False。
     """
     client_name: str | None = st.session_state.get(SESSION_KEY_CLIENT_NAME)
     client_name_kana: str | None = st.session_state.get(SESSION_KEY_CLIENT_NAME_KANA)
@@ -147,7 +150,7 @@ def _save_session_to_db(
 
     if not client_name or not birth_date_val or not concern:
         st.error("保存に必要な情報が不足しています。フォームから再度入力してください。")
-        return
+        return False
 
     try:
         conn = get_db_connection()
@@ -178,12 +181,13 @@ def _save_session_to_db(
             user_id=current_user_id,
         )
 
-        st.success("鑑定結果を保存しました。")
         logger.info("鑑定結果を保存: client_id=%s", client_id)
+        return True
 
     except DatabaseError as e:
         logger.error("鑑定結果の保存に失敗: %s", e)
         st.error("保存に失敗しました。しばらくしてから再度お試しください。")
+        return False
 
 
 def main() -> None:
@@ -358,12 +362,12 @@ def main() -> None:
 
         # --- AI生成完了後に自動保存（二重保存防止） ---
         if not st.session_state.get(SESSION_KEY_SESSION_SAVED):
-            _save_session_to_db(
+            saved = _save_session_to_db(
                 result,
                 st.session_state[SESSION_KEY_AI_RESPONSE],
                 st.session_state.get(SESSION_KEY_LISTENING_HINTS),
             )
-            st.session_state[SESSION_KEY_SESSION_SAVED] = True
+            st.session_state[SESSION_KEY_SESSION_SAVED] = saved
 
     # --- Step 5: 鑑定結果の統合表示 ---
     ai_response: str | None = st.session_state[SESSION_KEY_AI_RESPONSE]
@@ -382,6 +386,20 @@ def main() -> None:
         st.markdown('<div class="fancy-divider"></div>', unsafe_allow_html=True)
         if st.session_state.get(SESSION_KEY_SESSION_SAVED):
             st.success("鑑定結果は自動的に保存されました。")
+        elif st.session_state.get(SESSION_KEY_SESSION_SAVED) is False:
+            st.warning(
+                "鑑定結果の保存に失敗しました。"
+                "下のボタンから手動で再保存をお試しください。"
+            )
+            if st.button("鑑定結果を再保存", type="primary", use_container_width=True):
+                saved = _save_session_to_db(
+                    result,
+                    ai_response,
+                    hints_response,
+                )
+                if saved:
+                    st.session_state[SESSION_KEY_SESSION_SAVED] = True
+                    st.rerun()
         if st.button(
             "新規鑑定を開始",
             key="new_reading_bottom",

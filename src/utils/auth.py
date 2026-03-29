@@ -158,6 +158,11 @@ def _try_restore_from_token(
 
     _restore_session_from_user(user)
     # トークンはURLに保持（session_state揮発時の再復元用）
+
+    # アクティブユーザーのトークン有効期限を延長
+    with contextlib.suppress(DatabaseError):
+        auth_session_repo.refresh_expiry(token)
+
     logger.info("セッショントークンからログイン復元: username=%s", user.username)
     return True
 
@@ -666,10 +671,8 @@ def require_page_auth() -> None:
     """ページ単位の認証チェック（防御深度）。
 
     app.py の require_login() に加え、各ページが独自に認証状態を検証する。
-    未ログイン時はセッション切れの案内を表示し、st.stop() でページ描画を阻止する。
-
-    URLにセッショントークンが残っている場合はページリロードで復元可能なため、
-    リロードボタンを表示してユーザーを誘導する。
+    未ログイン時はまずセッショントークンからの復元を試み、
+    復元できない場合はセッション切れの案内を表示し st.stop() でページ描画を阻止する。
     """
     if is_logged_in():
         return
@@ -677,7 +680,19 @@ def require_page_auth() -> None:
     has_token = bool(st.query_params.get(SESSION_TOKEN_QUERY_PARAM))
 
     if has_token:
-        # トークンがURLにある場合、リロードすればapp.pyのrequire_login()で復元される
+        # トークンが残っている場合、ページ側でも復元を試行する
+        try:
+            from db_init import get_db_connection  # noqa: PLC0415
+
+            conn = get_db_connection()
+            repo = AuthSessionRepository(conn)
+            if _try_restore_from_token(repo):
+                st.rerun()
+                return
+        except (DatabaseError, ImportError) as e:
+            logger.warning("require_page_auth: トークン復元に失敗: %s", e)
+
+        # 復元に失敗した場合はリロードを案内
         st.warning("セッションの接続が切れました。ページを再読み込みしてください。")
         if st.button("ページを再読み込み", type="primary", use_container_width=True):
             st.rerun()

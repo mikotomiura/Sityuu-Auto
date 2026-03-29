@@ -177,6 +177,33 @@ class AuthSessionRepository:
 
         return cursor.rowcount
 
+    def refresh_expiry(self, token: str) -> None:
+        """セッショントークンの有効期限を現在時刻から再計算して延長する。
+
+        アクティブなユーザーのトークンが期限切れにならないよう、
+        トークン検証成功時に呼び出す。
+
+        Args:
+            token: セッショントークン文字列。
+
+        Raises:
+            DatabaseError: 更新に失敗した場合。
+        """
+        new_expires = (
+            datetime.now() + timedelta(hours=SESSION_TOKEN_EXPIRY_HOURS)
+        ).isoformat()
+        try:
+            cursor = self._conn.execute(
+                "UPDATE auth_sessions SET expires_at = ? WHERE token = ?",
+                (new_expires, token),
+            )
+            self._conn.commit()
+            if cursor.rowcount > 0:
+                logger.debug("セッショントークン有効期限を延長")
+        except sqlite3.Error as e:
+            logger.warning("セッショントークン期限延長に失敗: %s", e)
+            raise DatabaseError("セッショントークンの期限延長に失敗しました") from e
+
     def cleanup_expired(self) -> int:
         """期限切れセッションを一括削除する。
 

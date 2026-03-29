@@ -35,12 +35,26 @@ logger = logging.getLogger(__name__)
 _PW_CHANGE_FAIL_KEY = "_pw_change_fail_count"
 _PW_CHANGE_MAX_ATTEMPTS = 5
 
+# --- 成功メッセージの永続化キー ---
+_SUCCESS_MSG_KEY = "_settings_success_msg"
+
 # --- プロバイダー表示名 ---
 _PROVIDER_LABELS: dict[str, str] = {
     "gemini": "Google Gemini",
     "openai": "OpenAI",
     "anthropic": "Anthropic",
 }
+
+
+def _show_deferred_success() -> None:
+    """session_state に保存された成功メッセージを表示し、クリアする。
+
+    st.rerun() 前に設定された成功メッセージを、
+    rerun 後の描画で確実に表示するためのヘルパー。
+    """
+    msg = st.session_state.pop(_SUCCESS_MSG_KEY, None)
+    if msg:
+        st.success(msg)
 
 
 def _initialize_state() -> None:
@@ -90,6 +104,7 @@ def _save_user_preferences(provider: str, model: str) -> None:
 
 def _render_api_settings() -> None:
     """API設定セクションを表示する。"""
+    _show_deferred_success()
     st.header("API設定")
 
     current_provider: str = st.session_state[SESSION_KEY_API_PROVIDER]
@@ -204,9 +219,13 @@ def _render_api_settings() -> None:
                 try:
                     user_repo.update_api_key(user_id, provider, new_key)
                     if new_key:
-                        st.success(f"{label} のAPIキーを更新しました。")
+                        st.session_state[_SUCCESS_MSG_KEY] = (
+                            f"{label} のAPIキーを更新しました。"
+                        )
                     else:
-                        st.success(f"{label} のAPIキーを削除しました。")
+                        st.session_state[_SUCCESS_MSG_KEY] = (
+                            f"{label} のAPIキーを削除しました。"
+                        )
                     st.rerun()
                 except DatabaseError:
                     st.error("APIキーの更新に失敗しました。")
@@ -214,6 +233,7 @@ def _render_api_settings() -> None:
 
 def _render_account_settings() -> None:
     """アカウント設定セクション（アカウント情報・表示名変更・パスワード変更）を表示する。"""
+    _show_deferred_success()
     user_id = get_current_user_id()
     if not user_id:
         st.error("ログインが必要です。")
@@ -258,7 +278,9 @@ def _render_account_settings() -> None:
                     result = user_repo.update_display_name(user_id, stripped_name)
                     if result:
                         st.session_state[SESSION_KEY_AUTH_DISPLAY_NAME] = stripped_name
-                        st.success(f"表示名を「{stripped_name}」に変更しました。")
+                        st.session_state[_SUCCESS_MSG_KEY] = (
+                            f"表示名を「{stripped_name}」に変更しました。"
+                        )
                         st.rerun()
                     else:
                         st.error("表示名の変更に失敗しました。")
@@ -295,9 +317,11 @@ def _render_account_settings() -> None:
                 try:
                     user_repo.update_email(user_id, stripped_email or None)
                     if stripped_email:
-                        st.success(f"メールアドレスを「{stripped_email}」に更新しました。")
+                        st.session_state[_SUCCESS_MSG_KEY] = (
+                            f"メールアドレスを「{stripped_email}」に更新しました。"
+                        )
                     else:
-                        st.success("メールアドレスを削除しました。")
+                        st.session_state[_SUCCESS_MSG_KEY] = "メールアドレスを削除しました。"
                     st.rerun()
                 except DatabaseError as e:
                     error_msg = str(e)
@@ -403,6 +427,7 @@ def _render_template_list(repo: PromptTemplateRepository) -> None:
     Args:
         repo: プロンプトテンプレートリポジトリ。
     """
+    _show_deferred_success()
     st.header("プロンプトテンプレート管理")
     st.caption("AI鑑定レポート生成時に使用するシステムプロンプトを管理します。")
 
@@ -454,7 +479,9 @@ def _render_template_list(repo: PromptTemplateRepository) -> None:
                     ):
                         try:
                             repo.set_default(tmpl.id)
-                            st.success(f"「{tmpl.name}」をデフォルトに設定しました。")
+                            st.session_state[_SUCCESS_MSG_KEY] = (
+                                f"「{tmpl.name}」をデフォルトに設定しました。"
+                            )
                             st.rerun()
                         except DatabaseError:
                             st.error("操作に失敗しました。")
@@ -476,7 +503,9 @@ def _render_template_list(repo: PromptTemplateRepository) -> None:
                     ):
                         try:
                             repo.delete(tmpl.id)
-                            st.success(f"「{tmpl.name}」を削除しました。")
+                            st.session_state[_SUCCESS_MSG_KEY] = (
+                                f"「{tmpl.name}」を削除しました。"
+                            )
                             st.rerun()
                         except DatabaseError as e:
                             st.error(str(e))
@@ -523,7 +552,9 @@ def _render_create_form(repo: PromptTemplateRepository) -> None:
                         description=description.strip() or None,
                         is_default=is_default,
                     )
-                    st.success(f"テンプレート「{name}」を作成しました。")
+                    st.session_state[_SUCCESS_MSG_KEY] = (
+                        f"テンプレート「{name}」を作成しました。"
+                    )
                     st.rerun()
                 except DatabaseError as e:
                     st.error(str(e))
@@ -576,7 +607,7 @@ def _render_edit_form(
                         description=description.strip() or None,
                     )
                     st.session_state[SESSION_KEY_TEMPLATE_EDIT_ID] = None
-                    st.success("テンプレートを更新しました。")
+                    st.session_state[_SUCCESS_MSG_KEY] = "テンプレートを更新しました。"
                     st.rerun()
                 except DatabaseError as e:
                     st.error(str(e))
