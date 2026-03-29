@@ -13,6 +13,7 @@ import pytest
 from db_service.models import ClientRecord, SessionRecord
 from db_service.repositories.client_repo import UNSET, ClientRepository
 from db_service.repositories.session_repo import SessionRepository
+from tests.integration.conftest import OTHER_USER_ID, TEST_USER_ID
 from utils.exceptions import DatabaseError
 
 
@@ -25,6 +26,7 @@ def saved_client_id(client_repo: ClientRepository) -> str:
         birth_time="10:30",
         gender="男性",
         notes="テスト用",
+        user_id=TEST_USER_ID,
     )
 
 
@@ -49,7 +51,9 @@ class TestClientRepositorySave:
 
     def test_save_returns_uuid(self, client_repo: ClientRepository) -> None:
         """保存時にUUID文字列が返ること。"""
-        client_id = client_repo.save(name="佐藤花子", birth_date=date(1985, 3, 10))
+        client_id = client_repo.save(
+            name="佐藤花子", birth_date=date(1985, 3, 10), user_id=TEST_USER_ID
+        )
         assert isinstance(client_id, str)
         assert len(client_id) == 36  # UUID format
 
@@ -61,19 +65,23 @@ class TestClientRepositorySave:
             birth_time="14:00",
             gender="男性",
             notes="メモ",
+            user_id=TEST_USER_ID,
         )
-        record = client_repo.find_by_id(client_id)
+        record = client_repo.find_by_id(client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.name == "田中一郎"
         assert record.birth_date == "2000-01-01"
         assert record.birth_time == "14:00"
         assert record.gender == "男性"
         assert record.notes == "メモ"
+        assert record.user_id == TEST_USER_ID
 
     def test_save_with_minimal_fields(self, client_repo: ClientRepository) -> None:
         """必須フィールドのみで保存できること。"""
-        client_id = client_repo.save(name="鈴木", birth_date=date(1975, 12, 25))
-        record = client_repo.find_by_id(client_id)
+        client_id = client_repo.save(
+            name="鈴木", birth_date=date(1975, 12, 25), user_id=TEST_USER_ID
+        )
+        record = client_repo.find_by_id(client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.birth_time is None
         assert record.gender is None
@@ -87,7 +95,7 @@ class TestClientRepositoryFindById:
         self, client_repo: ClientRepository, saved_client_id: str
     ) -> None:
         """存在するIDで ClientRecord が返ること。"""
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert isinstance(record, ClientRecord)
         assert record.id == saved_client_id
@@ -95,8 +103,23 @@ class TestClientRepositoryFindById:
 
     def test_find_by_id_returns_none_for_unknown_id(self, client_repo: ClientRepository) -> None:
         """存在しないIDで None が返ること。"""
-        result = client_repo.find_by_id("nonexistent-uuid")
+        result = client_repo.find_by_id("nonexistent-uuid", user_id=TEST_USER_ID)
         assert result is None
+
+    def test_find_by_id_with_wrong_user_returns_none(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """別ユーザーIDでフィルタすると None が返ること。"""
+        result = client_repo.find_by_id(saved_client_id, user_id=OTHER_USER_ID)
+        assert result is None
+
+    def test_find_by_id_with_correct_user_returns_record(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """正しいユーザーIDでフィルタするとレコードが返ること。"""
+        result = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
+        assert result is not None
+        assert result.id == saved_client_id
 
 
 class TestClientRepositoryFindAll:
@@ -104,31 +127,46 @@ class TestClientRepositoryFindAll:
 
     def test_find_all_returns_empty_list(self, client_repo: ClientRepository) -> None:
         """データなしで空リストが返ること。"""
-        assert client_repo.find_all() == []
+        assert client_repo.find_all(user_id=TEST_USER_ID) == []
 
     def test_find_all_returns_records(
         self, client_repo: ClientRepository, saved_client_id: str
     ) -> None:
         """保存済みデータがリストで返ること。"""
-        records = client_repo.find_all()
+        records = client_repo.find_all(user_id=TEST_USER_ID)
         assert len(records) == 1
         assert records[0].id == saved_client_id
 
     def test_find_all_respects_limit(self, client_repo: ClientRepository) -> None:
         """limit パラメータが効くこと。"""
         for i in range(5):
-            client_repo.save(name=f"ユーザー{i}", birth_date=date(1990, 1, 1))
-        records = client_repo.find_all(limit=3)
+            client_repo.save(
+                name=f"ユーザー{i}", birth_date=date(1990, 1, 1), user_id=TEST_USER_ID
+            )
+        records = client_repo.find_all(user_id=TEST_USER_ID, limit=3)
         assert len(records) == 3
 
     def test_find_all_respects_offset(self, client_repo: ClientRepository) -> None:
         """offset パラメータが効くこと。"""
         for i in range(5):
-            client_repo.save(name=f"ユーザー{i}", birth_date=date(1990, 1, 1))
-        all_records = client_repo.find_all()
-        offset_records = client_repo.find_all(offset=2)
+            client_repo.save(
+                name=f"ユーザー{i}", birth_date=date(1990, 1, 1), user_id=TEST_USER_ID
+            )
+        all_records = client_repo.find_all(user_id=TEST_USER_ID)
+        offset_records = client_repo.find_all(user_id=TEST_USER_ID, offset=2)
         assert len(offset_records) == 3
         assert offset_records[0].id == all_records[2].id
+
+    def test_find_all_isolates_by_user(self, client_repo: ClientRepository) -> None:
+        """別ユーザーのデータが返らないこと。"""
+        client_repo.save(name="ユーザーA", birth_date=date(1990, 1, 1), user_id=TEST_USER_ID)
+        client_repo.save(name="ユーザーB", birth_date=date(1990, 1, 1), user_id=OTHER_USER_ID)
+        records_a = client_repo.find_all(user_id=TEST_USER_ID)
+        records_b = client_repo.find_all(user_id=OTHER_USER_ID)
+        assert len(records_a) == 1
+        assert records_a[0].name == "ユーザーA"
+        assert len(records_b) == 1
+        assert records_b[0].name == "ユーザーB"
 
 
 class TestClientRepositorySearchByName:
@@ -136,19 +174,27 @@ class TestClientRepositorySearchByName:
 
     def test_search_by_name_partial_match(self, client_repo: ClientRepository) -> None:
         """部分一致で検索できること。"""
-        client_repo.save(name="山田太郎", birth_date=date(1990, 1, 1))
-        client_repo.save(name="山田花子", birth_date=date(1985, 6, 15))
-        client_repo.save(name="佐藤次郎", birth_date=date(2000, 3, 20))
+        client_repo.save(name="山田太郎", birth_date=date(1990, 1, 1), user_id=TEST_USER_ID)
+        client_repo.save(name="山田花子", birth_date=date(1985, 6, 15), user_id=TEST_USER_ID)
+        client_repo.save(name="佐藤次郎", birth_date=date(2000, 3, 20), user_id=TEST_USER_ID)
 
-        results = client_repo.search_by_name("山田")
+        results = client_repo.search_by_name("山田", user_id=TEST_USER_ID)
         assert len(results) == 2
         assert all("山田" in r.name for r in results)
 
     def test_search_by_name_no_match(self, client_repo: ClientRepository) -> None:
         """一致なしで空リストが返ること。"""
-        client_repo.save(name="山田太郎", birth_date=date(1990, 1, 1))
-        results = client_repo.search_by_name("田中")
+        client_repo.save(name="山田太郎", birth_date=date(1990, 1, 1), user_id=TEST_USER_ID)
+        results = client_repo.search_by_name("田中", user_id=TEST_USER_ID)
         assert results == []
+
+    def test_search_by_name_isolates_by_user(self, client_repo: ClientRepository) -> None:
+        """別ユーザーのデータが検索に含まれないこと。"""
+        client_repo.save(name="山田太郎", birth_date=date(1990, 1, 1), user_id=TEST_USER_ID)
+        client_repo.save(name="山田花子", birth_date=date(1985, 6, 15), user_id=OTHER_USER_ID)
+        results = client_repo.search_by_name("山田", user_id=TEST_USER_ID)
+        assert len(results) == 1
+        assert results[0].name == "山田太郎"
 
 
 class TestClientRepositoryUpdate:
@@ -159,7 +205,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, name="山田次郎")
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.name == "山田次郎"
 
@@ -168,7 +214,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, name_kana="ヤマダ ジロウ")
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.name_kana == "ヤマダ ジロウ"
 
@@ -180,7 +226,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, name_kana="")
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.name_kana == ""
 
@@ -189,7 +235,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, notes="新しいメモ")
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.notes == "新しいメモ"
 
@@ -197,12 +243,12 @@ class TestClientRepositoryUpdate:
         self, client_repo: ClientRepository, saved_client_id: str
     ) -> None:
         """更新時に updated_at が変わること。"""
-        before = client_repo.find_by_id(saved_client_id)
+        before = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert before is not None
 
         client_repo.update(saved_client_id, name="変更後")
 
-        after = client_repo.find_by_id(saved_client_id)
+        after = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert after is not None
         assert after.updated_at >= before.updated_at
 
@@ -224,7 +270,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, birth_date=new_date)
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.birth_date == "1995-12-25"
 
@@ -233,7 +279,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, birth_time="14:30")
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.birth_time == "14:30"
 
@@ -245,7 +291,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, birth_time=None)
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.birth_time is None
 
@@ -257,7 +303,7 @@ class TestClientRepositoryUpdate:
         # UNSET + name 変更のみ → birth_time は変わらない
         client_repo.update(saved_client_id, name="別名", birth_time=UNSET)
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.birth_time == "09:00"
 
@@ -266,7 +312,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, gender="女性")
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.gender == "女性"
 
@@ -278,7 +324,7 @@ class TestClientRepositoryUpdate:
         result = client_repo.update(saved_client_id, gender=None)
         assert result is True
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.gender is None
 
@@ -289,9 +335,29 @@ class TestClientRepositoryUpdate:
         client_repo.update(saved_client_id, gender="女性")
         client_repo.update(saved_client_id, name="別名2", gender=UNSET)
 
-        record = client_repo.find_by_id(saved_client_id)
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.gender == "女性"
+
+    def test_update_with_user_id_filter(
+        self, client_repo: ClientRepository, saved_client_id: str
+    ) -> None:
+        """user_id フィルタ付きの更新が正しく動作すること。"""
+        # 正しいユーザーで更新
+        result = client_repo.update(
+            saved_client_id, name="正しいユーザー", user_id=TEST_USER_ID
+        )
+        assert result is True
+
+        # 別ユーザーでは更新できない
+        result = client_repo.update(
+            saved_client_id, name="不正ユーザー", user_id=OTHER_USER_ID
+        )
+        assert result is False
+
+        record = client_repo.find_by_id(saved_client_id, user_id=TEST_USER_ID)
+        assert record is not None
+        assert record.name == "正しいユーザー"
 
 
 # ============================================================
@@ -312,6 +378,7 @@ class TestSessionRepositorySave:
             client_id=saved_client_id,
             concern="仕事の悩み",
             natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
         )
         assert isinstance(session_id, str)
         assert len(session_id) == 36
@@ -332,8 +399,9 @@ class TestSessionRepositorySave:
             mentor_notes="出品者メモ",
             api_provider="anthropic",
             api_model="claude-3-5-sonnet",
+            user_id=TEST_USER_ID,
         )
-        record = session_repo.find_by_id(session_id)
+        record = session_repo.find_by_id(session_id, user_id=TEST_USER_ID)
         assert record is not None
         assert record.client_id == saved_client_id
         assert record.concern == "人間関係の悩み"
@@ -345,6 +413,7 @@ class TestSessionRepositorySave:
         assert record.mentor_notes == "出品者メモ"
         assert record.api_provider == "anthropic"
         assert record.api_model == "claude-3-5-sonnet"
+        assert record.user_id == TEST_USER_ID
 
     def test_save_fails_with_invalid_client_id(
         self,
@@ -356,6 +425,7 @@ class TestSessionRepositorySave:
                 client_id="nonexistent-client-id",
                 concern="テスト",
                 natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+                user_id=TEST_USER_ID,
             )
 
 
@@ -372,15 +442,31 @@ class TestSessionRepositoryFindById:
             client_id=saved_client_id,
             concern="テスト",
             natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
         )
-        record = session_repo.find_by_id(session_id)
+        record = session_repo.find_by_id(session_id, user_id=TEST_USER_ID)
         assert record is not None
         assert isinstance(record, SessionRecord)
         assert record.id == session_id
 
     def test_find_by_id_returns_none_for_unknown_id(self, session_repo: SessionRepository) -> None:
         """存在しないIDで None が返ること。"""
-        assert session_repo.find_by_id("nonexistent-uuid") is None
+        assert session_repo.find_by_id("nonexistent-uuid", user_id=TEST_USER_ID) is None
+
+    def test_find_by_id_with_wrong_user_returns_none(
+        self,
+        session_repo: SessionRepository,
+        saved_client_id: str,
+    ) -> None:
+        """別ユーザーIDでフィルタすると None が返ること。"""
+        session_id = session_repo.save(
+            client_id=saved_client_id,
+            concern="テスト",
+            natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
+        )
+        result = session_repo.find_by_id(session_id, user_id=OTHER_USER_ID)
+        assert result is None
 
 
 class TestSessionRepositoryFindByClientId:
@@ -396,13 +482,15 @@ class TestSessionRepositoryFindByClientId:
             client_id=saved_client_id,
             concern="悩み1",
             natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
         )
         session_repo.save(
             client_id=saved_client_id,
             concern="悩み2",
             natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
         )
-        records = session_repo.find_by_client_id(saved_client_id)
+        records = session_repo.find_by_client_id(saved_client_id, user_id=TEST_USER_ID)
         assert len(records) == 2
         assert all(r.client_id == saved_client_id for r in records)
 
@@ -412,7 +500,7 @@ class TestSessionRepositoryFindByClientId:
         saved_client_id: str,
     ) -> None:
         """セッションなしの相談者IDで空リストが返ること。"""
-        assert session_repo.find_by_client_id(saved_client_id) == []
+        assert session_repo.find_by_client_id(saved_client_id, user_id=TEST_USER_ID) == []
 
     def test_find_by_client_id_respects_limit(
         self,
@@ -425,8 +513,9 @@ class TestSessionRepositoryFindByClientId:
                 client_id=saved_client_id,
                 concern=f"悩み{i}",
                 natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+                user_id=TEST_USER_ID,
             )
-        records = session_repo.find_by_client_id(saved_client_id, limit=2)
+        records = session_repo.find_by_client_id(saved_client_id, user_id=TEST_USER_ID, limit=2)
         assert len(records) == 2
 
 
@@ -435,7 +524,7 @@ class TestSessionRepositoryFindAll:
 
     def test_find_all_returns_empty_list(self, session_repo: SessionRepository) -> None:
         """データなしで空リストが返ること。"""
-        assert session_repo.find_all() == []
+        assert session_repo.find_all(user_id=TEST_USER_ID) == []
 
     def test_find_all_returns_all_sessions(
         self,
@@ -447,11 +536,38 @@ class TestSessionRepositoryFindAll:
             client_id=saved_client_id,
             concern="悩み1",
             natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
         )
         session_repo.save(
             client_id=saved_client_id,
             concern="悩み2",
             natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
         )
-        records = session_repo.find_all()
+        records = session_repo.find_all(user_id=TEST_USER_ID)
         assert len(records) == 2
+
+    def test_find_all_isolates_by_user(
+        self,
+        session_repo: SessionRepository,
+        saved_client_id: str,
+    ) -> None:
+        """別ユーザーのセッションが返らないこと。"""
+        session_repo.save(
+            client_id=saved_client_id,
+            concern="ユーザーAの悩み",
+            natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=TEST_USER_ID,
+        )
+        session_repo.save(
+            client_id=saved_client_id,
+            concern="ユーザーBの悩み",
+            natal_chart_json=SAMPLE_NATAL_CHART_JSON,
+            user_id=OTHER_USER_ID,
+        )
+        records_a = session_repo.find_all(user_id=TEST_USER_ID)
+        records_b = session_repo.find_all(user_id=OTHER_USER_ID)
+        assert len(records_a) == 1
+        assert records_a[0].concern == "ユーザーAの悩み"
+        assert len(records_b) == 1
+        assert records_b[0].concern == "ユーザーBの悩み"

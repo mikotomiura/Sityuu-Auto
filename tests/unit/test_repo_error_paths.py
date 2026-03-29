@@ -29,7 +29,7 @@ class TestClientRepositoryErrorPaths:
 
         repo = ClientRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.save(name="テスト", birth_date=date(1990, 1, 1))
+            repo.save(name="テスト", birth_date=date(1990, 1, 1), user_id="u1")
 
     def test_find_by_id_raises_database_error(self) -> None:
         """find_by_id で sqlite3.Error が DatabaseError にラップされること。"""
@@ -41,13 +41,13 @@ class TestClientRepositoryErrorPaths:
         """find_all で sqlite3.Error が DatabaseError にラップされること。"""
         repo = ClientRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.find_all()
+            repo.find_all(user_id="u1")
 
     def test_search_by_name_raises_database_error(self) -> None:
         """search_by_name で sqlite3.Error が DatabaseError にラップされること。"""
         repo = ClientRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.search_by_name("山田")
+            repo.search_by_name("山田", user_id="u1")
 
     def test_update_raises_database_error(self) -> None:
         """update で sqlite3.Error が DatabaseError にラップされること。"""
@@ -55,11 +55,17 @@ class TestClientRepositoryErrorPaths:
         with pytest.raises(DatabaseError):
             repo.update("some-uuid", name="新名前")
 
+    def test_count_raises_database_error(self) -> None:
+        """count で sqlite3.Error が DatabaseError にラップされること。"""
+        repo = ClientRepository(_make_error_conn())
+        with pytest.raises(DatabaseError):
+            repo.count(user_id="u1")
+
     def test_count_sessions_by_client_raises_database_error(self) -> None:
         """count_sessions_by_client で sqlite3.Error が DatabaseError にラップされること。"""
         repo = ClientRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.count_sessions_by_client()
+            repo.count_sessions_by_client(user_id="u1")
 
 
 class TestSessionRepositoryErrorPaths:
@@ -73,6 +79,7 @@ class TestSessionRepositoryErrorPaths:
                 client_id="client-uuid",
                 concern="テスト",
                 natal_chart_json="{}",
+                user_id="u1",
             )
 
     def test_find_by_id_raises_database_error(self) -> None:
@@ -85,25 +92,31 @@ class TestSessionRepositoryErrorPaths:
         """find_by_client_id で sqlite3.Error が DatabaseError にラップされること。"""
         repo = SessionRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.find_by_client_id("client-uuid")
+            repo.find_by_client_id("client-uuid", user_id="u1")
 
     def test_find_all_raises_database_error(self) -> None:
         """find_all で sqlite3.Error が DatabaseError にラップされること。"""
         repo = SessionRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.find_all()
+            repo.find_all(user_id="u1")
+
+    def test_count_raises_database_error(self) -> None:
+        """count で sqlite3.Error が DatabaseError にラップされること。"""
+        repo = SessionRepository(_make_error_conn())
+        with pytest.raises(DatabaseError):
+            repo.count(user_id="u1")
 
     def test_find_all_with_client_name_raises_database_error(self) -> None:
         """find_all_with_client_name で DatabaseError にラップされること。"""
         repo = SessionRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.find_all_with_client_name()
+            repo.find_all_with_client_name(user_id="u1")
 
     def test_search_by_client_name_raises_database_error(self) -> None:
         """search_by_client_name で DatabaseError にラップされること。"""
         repo = SessionRepository(_make_error_conn())
         with pytest.raises(DatabaseError):
-            repo.search_by_client_name("山田")
+            repo.search_by_client_name("山田", user_id="u1")
 
 
 class TestPromptTemplateRepositoryErrorPaths:

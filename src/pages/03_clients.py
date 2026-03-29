@@ -20,7 +20,7 @@ from config import (
 from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
-from utils.auth import require_page_auth
+from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import DatabaseError
 from utils.privacy import inject_autocomplete_off
 
@@ -59,11 +59,12 @@ def _render_list_view(
     st.session_state[SESSION_KEY_CLIENTS_SEARCH_QUERY] = search_query
 
     # --- データ取得 ---
+    user_id = get_current_user_id() or ""
     try:
         if search_query.strip():
-            clients = client_repo.search_by_name(search_query.strip())
+            clients = client_repo.search_by_name(search_query.strip(), user_id=user_id)
         else:
-            clients = client_repo.find_all()
+            clients = client_repo.find_all(user_id=user_id)
     except DatabaseError as e:
         logger.error("相談者一覧の取得に失敗: %s", e)
         st.error("相談者情報の取得に失敗しました。")
@@ -85,7 +86,7 @@ def _render_list_view(
 
     # セッション数を一括取得（N+1問題の回避）
     try:
-        session_counts = client_repo.count_sessions_by_client()
+        session_counts = client_repo.count_sessions_by_client(user_id=user_id)
     except DatabaseError:
         session_counts = {}
 
@@ -133,8 +134,9 @@ def _render_detail_view(
         st.rerun()
 
     # --- 相談者データ取得 ---
+    user_id = get_current_user_id() or ""
     try:
-        client = client_repo.find_by_id(client_id)
+        client = client_repo.find_by_id(client_id, user_id=user_id)
     except DatabaseError as e:
         logger.error("相談者の取得に失敗: %s", e)
         st.error("相談者情報の取得に失敗しました。")
@@ -268,7 +270,7 @@ def _render_detail_view(
                     update_kwargs["gender"] = new_gender
                 if notes_changed:
                     update_kwargs["notes"] = new_notes
-                client_repo.update(client_id=client_id, **update_kwargs)
+                client_repo.update(client_id=client_id, user_id=user_id, **update_kwargs)
                 st.session_state[SESSION_KEY_CLIENTS_EDIT_SUCCESS] = True
                 st.rerun()
             except DatabaseError as e:
@@ -280,7 +282,7 @@ def _render_detail_view(
     st.markdown("#### 鑑定履歴")
 
     try:
-        sessions = session_repo.find_by_client_id(client_id)
+        sessions = session_repo.find_by_client_id(client_id, user_id=user_id)
     except DatabaseError as e:
         logger.error("鑑定履歴の取得に失敗: %s", e)
         st.error("鑑定履歴の取得に失敗しました。")

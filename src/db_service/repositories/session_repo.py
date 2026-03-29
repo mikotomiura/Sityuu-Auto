@@ -32,6 +32,7 @@ def _row_to_session_record(row: sqlite3.Row) -> SessionRecord:
         mentor_notes=row["mentor_notes"],
         api_provider=row["api_provider"],
         api_model=row["api_model"],
+        user_id=row["user_id"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -82,6 +83,7 @@ class SessionRepository:
         mentor_notes: str | None = None,
         api_provider: str | None = None,
         api_model: str | None = None,
+        user_id: str | None = None,
     ) -> str:
         """鑑定セッションを新規保存する。
 
@@ -95,6 +97,7 @@ class SessionRepository:
             mentor_notes: 出品者メモ。
             api_provider: 使用した API プロバイダー名。
             api_model: 使用したモデル名。
+            user_id: データ所有者のユーザーID。
 
         Returns:
             生成された UUID（文字列）。
@@ -111,8 +114,8 @@ class SessionRepository:
                 INSERT INTO sessions
                     (id, client_id, concern, natal_chart_json, sanmei_data_json,
                      ai_reading_text, ai_listening_hints, mentor_notes,
-                     api_provider, api_model, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     api_provider, api_model, user_id, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -125,6 +128,7 @@ class SessionRepository:
                     mentor_notes,
                     api_provider,
                     api_model,
+                    user_id,
                     now,
                     now,
                 ),
@@ -137,11 +141,12 @@ class SessionRepository:
         logger.info("セッションを保存: session_id=%s, client_id=%s", session_id, client_id)
         return session_id
 
-    def find_by_id(self, session_id: str) -> SessionRecord | None:
+    def find_by_id(self, session_id: str, user_id: str = "") -> SessionRecord | None:
         """IDでセッションを検索する。
 
         Args:
             session_id: セッションの UUID。
+            user_id: データ所有者のユーザーID。
 
         Returns:
             見つかった場合は SessionRecord、見つからない場合は None。
@@ -151,8 +156,8 @@ class SessionRepository:
         """
         try:
             cursor = self._conn.execute(
-                "SELECT * FROM sessions WHERE id = ?",
-                (session_id,),
+                "SELECT * FROM sessions WHERE id = ? AND user_id = ?",
+                (session_id, user_id),
             )
             row = cursor.fetchone()
         except sqlite3.Error as e:
@@ -165,12 +170,13 @@ class SessionRepository:
         return _row_to_session_record(row)
 
     def find_by_client_id(
-        self, client_id: str, limit: int = 50, offset: int = 0
+        self, client_id: str, user_id: str = "", limit: int = 50, offset: int = 0
     ) -> list[SessionRecord]:
         """相談者IDでセッションを検索する。
 
         Args:
             client_id: 相談者の UUID。
+            user_id: データ所有者のユーザーID。
             limit: 取得件数上限。
             offset: オフセット。
 
@@ -182,19 +188,22 @@ class SessionRepository:
         """
         try:
             cursor = self._conn.execute(
-                "SELECT * FROM sessions WHERE client_id = ?"
+                "SELECT * FROM sessions WHERE client_id = ? AND user_id = ?"
                 " ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                (client_id, limit, offset),
+                (client_id, user_id, limit, offset),
             )
             return [_row_to_session_record(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
             logger.error("セッションの検索に失敗: %s", e)
             raise DatabaseError("セッションの検索に失敗しました") from e
 
-    def find_all(self, limit: int = 50, offset: int = 0) -> list[SessionRecord]:
-        """全セッションを取得する（ページネーション付き）。
+    def find_all(
+        self, user_id: str, limit: int = 50, offset: int = 0
+    ) -> list[SessionRecord]:
+        """指定ユーザーのセッションを取得する（ページネーション付き）。
 
         Args:
+            user_id: データ所有者のユーザーID。
             limit: 取得件数上限。
             offset: オフセット。
 
@@ -206,16 +215,20 @@ class SessionRepository:
         """
         try:
             cursor = self._conn.execute(
-                "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                (limit, offset),
+                "SELECT * FROM sessions WHERE user_id = ?"
+                " ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset),
             )
             return [_row_to_session_record(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
             logger.error("セッション一覧の取得に失敗: %s", e)
             raise DatabaseError("セッション一覧の取得に失敗しました") from e
 
-    def count(self) -> int:
-        """セッション数を取得する。
+    def count(self, user_id: str) -> int:
+        """指定ユーザーのセッション数を取得する。
+
+        Args:
+            user_id: データ所有者のユーザーID。
 
         Returns:
             セッション数。
@@ -224,7 +237,10 @@ class SessionRepository:
             DatabaseError: 取得に失敗した場合。
         """
         try:
-            cursor = self._conn.execute("SELECT COUNT(*) as cnt FROM sessions")
+            cursor = self._conn.execute(
+                "SELECT COUNT(*) as cnt FROM sessions WHERE user_id = ?",
+                (user_id,),
+            )
             row = cursor.fetchone()
             return row["cnt"] if row else 0
         except sqlite3.Error as e:
@@ -233,14 +249,16 @@ class SessionRepository:
 
     def find_all_with_client_name(
         self,
+        user_id: str,
         limit: int = 50,
         offset: int = 0,
     ) -> list[SessionWithClientName]:
-        """全セッションを相談者名付きで取得する。
+        """指定ユーザーのセッションを相談者名付きで取得する。
 
         sessions と clients を JOIN し、相談者名を含めた一覧を返す。
 
         Args:
+            user_id: データ所有者のユーザーID。
             limit: 取得件数上限。
             offset: オフセット。
 
@@ -256,10 +274,11 @@ class SessionRepository:
                 SELECT s.*, c.name AS client_name
                 FROM sessions s
                 JOIN clients c ON s.client_id = c.id
+                WHERE s.user_id = ? AND c.user_id = ?
                 ORDER BY s.created_at DESC
                 LIMIT ? OFFSET ?
                 """,
-                (limit, offset),
+                (user_id, user_id, limit, offset),
             )
             return [_row_to_session_with_client_name(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
@@ -269,6 +288,7 @@ class SessionRepository:
     def search_by_client_name(
         self,
         query: str,
+        user_id: str,
         limit: int = 50,
         offset: int = 0,
     ) -> list[SessionWithClientName]:
@@ -278,6 +298,7 @@ class SessionRepository:
 
         Args:
             query: 検索文字列（相談者名の部分一致）。
+            user_id: データ所有者のユーザーID。
             limit: 取得件数上限。
             offset: オフセット。
 
@@ -293,11 +314,11 @@ class SessionRepository:
                 SELECT s.*, c.name AS client_name
                 FROM sessions s
                 JOIN clients c ON s.client_id = c.id
-                WHERE c.name LIKE ?
+                WHERE s.user_id = ? AND c.user_id = ? AND c.name LIKE ?
                 ORDER BY s.created_at DESC
                 LIMIT ? OFFSET ?
                 """,
-                (f"%{query}%", limit, offset),
+                (user_id, user_id, f"%{query}%", limit, offset),
             )
             return [_row_to_session_with_client_name(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:

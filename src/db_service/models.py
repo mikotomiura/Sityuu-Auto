@@ -18,6 +18,7 @@ class ClientRecord:
         birth_time: 出生時間（HH:MM形式）。不明の場合は None。
         gender: 性別。
         notes: メモ。
+        user_id: データ所有者のユーザーID。マイグレーション前の既存データは None。
         created_at: 作成日時（ISO 8601 形式）。
         updated_at: 更新日時（ISO 8601 形式）。
     """
@@ -29,6 +30,7 @@ class ClientRecord:
     birth_time: str | None
     gender: str | None
     notes: str | None
+    user_id: str | None
     created_at: str
     updated_at: str
 
@@ -48,6 +50,7 @@ class SessionRecord:
         mentor_notes: 出品者メモ。
         api_provider: 使用した API プロバイダー名。
         api_model: 使用したモデル名。
+        user_id: データ所有者のユーザーID。マイグレーション前の既存データは None。
         created_at: 作成日時（ISO 8601 形式）。
         updated_at: 更新日時（ISO 8601 形式）。
     """
@@ -62,6 +65,7 @@ class SessionRecord:
     mentor_notes: str | None
     api_provider: str | None
     api_model: str | None
+    user_id: str | None
     created_at: str
     updated_at: str
 

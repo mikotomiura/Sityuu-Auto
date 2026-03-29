@@ -153,6 +153,7 @@ def _save_session_to_db(
         conn = get_db_connection()
         client_repo = ClientRepository(conn)
         session_repo = SessionRepository(conn)
+        current_user_id = get_current_user_id()
 
         # 相談者を保存
         client_id = client_repo.save(
@@ -161,6 +162,7 @@ def _save_session_to_db(
             birth_time=birth_time_val,
             gender=gender_val,
             name_kana=client_name_kana,
+            user_id=current_user_id,
         )
 
         # セッションを保存
@@ -173,6 +175,7 @@ def _save_session_to_db(
             ai_listening_hints=listening_hints,
             api_provider=st.session_state.get(SESSION_KEY_API_PROVIDER, DEFAULT_API_PROVIDER),
             api_model=st.session_state.get(SESSION_KEY_API_MODEL, DEFAULT_MODEL),
+            user_id=current_user_id,
         )
 
         st.success("鑑定結果を保存しました。")

@@ -47,19 +47,20 @@ def _render_stats(
         client_repo: 相談者リポジトリ。
         session_repo: セッションリポジトリ。
     """
+    user_id = get_current_user_id()
+
     try:
-        client_count = client_repo.count()
+        client_count = client_repo.count(user_id) if user_id else 0
     except DatabaseError:
         client_count = 0
 
     try:
-        session_count = session_repo.count()
+        session_count = session_repo.count(user_id) if user_id else 0
     except DatabaseError:
         session_count = 0
 
     # APIキー状態を確認
     provider = st.session_state.get(SESSION_KEY_API_PROVIDER, DEFAULT_API_PROVIDER)
-    user_id = get_current_user_id()
     api_status = "未設定"
     if user_id:
         try:
@@ -77,16 +78,17 @@ def _render_stats(
     col3.metric("APIキー", api_status)
 
 
-def _render_recent_sessions(session_repo: SessionRepository) -> None:
+def _render_recent_sessions(session_repo: SessionRepository, user_id: str) -> None:
     """最近の鑑定履歴を表示する。
 
     Args:
         session_repo: セッションリポジトリ。
+        user_id: データ所有者のユーザーID。
     """
     st.subheader("最近の鑑定")
 
     try:
-        recent = session_repo.find_all_with_client_name(limit=5)
+        recent = session_repo.find_all_with_client_name(user_id=user_id, limit=5)
     except DatabaseError:
         st.warning("鑑定履歴の取得に失敗しました。")
         return
@@ -145,8 +147,11 @@ def main() -> None:
 
     col_left, col_right = st.columns([3, 2])
 
+    # require_page_auth() 通過後は user_id が必ず存在する
+    user_id = get_current_user_id() or ""
+
     with col_left:
-        _render_recent_sessions(session_repo)
+        _render_recent_sessions(session_repo, user_id)
 
     with col_right:
         _render_quick_actions()

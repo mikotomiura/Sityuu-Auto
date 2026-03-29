@@ -23,7 +23,7 @@ from db_init import get_db_connection
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from fortune_engine.models import FortuneResult, NatalChart, SanmeiData
-from utils.auth import require_page_auth
+from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import DatabaseError, PDFExportError
 from utils.privacy import inject_autocomplete_off
 
@@ -58,11 +58,14 @@ def _render_list_view(session_repo: SessionRepository) -> None:
     st.session_state[SESSION_KEY_HISTORY_SEARCH_QUERY] = search_query
 
     # --- データ取得（ページネーション付き） ---
+    user_id = get_current_user_id() or ""
     try:
         if search_query.strip():
-            sessions = session_repo.search_by_client_name(search_query.strip(), limit=50)
+            sessions = session_repo.search_by_client_name(
+                search_query.strip(), user_id=user_id, limit=50
+            )
         else:
-            sessions = session_repo.find_all_with_client_name(limit=50)
+            sessions = session_repo.find_all_with_client_name(user_id=user_id, limit=50)
     except DatabaseError as e:
         logger.error("履歴の取得に失敗: %s", e)
         st.error("履歴の取得に失敗しました。")
@@ -96,8 +99,9 @@ def _render_detail_view(session_repo: SessionRepository) -> None:
         st.rerun()
 
     # --- セッションデータ取得 ---
+    user_id = get_current_user_id() or ""
     try:
-        session = session_repo.find_by_id(session_id)
+        session = session_repo.find_by_id(session_id, user_id=user_id)
     except DatabaseError as e:
         logger.error("セッション詳細の取得に失敗: %s", e)
         st.error("セッション詳細の取得に失敗しました。")
@@ -112,7 +116,7 @@ def _render_detail_view(session_repo: SessionRepository) -> None:
     try:
         conn = get_db_connection()
         client_repo = ClientRepository(conn)
-        client = client_repo.find_by_id(session.client_id)
+        client = client_repo.find_by_id(session.client_id, user_id=user_id)
         client_name = client.name if client else "不明"
     except DatabaseError:
         client_name = "不明"
