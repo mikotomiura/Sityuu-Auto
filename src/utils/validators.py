@@ -5,7 +5,10 @@
 成功時は None を返す。
 """
 
+import re
 from datetime import date
+
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 # --- 定数 ---
 CLIENT_NAME_MIN_LENGTH = 1
@@ -95,3 +98,15 @@ def validate_api_key(api_key: str | None, provider: str) -> str | None:
         return f"{provider} のAPIキーの形式が正しくありません。"
 
     return None
+
+
+def is_valid_email(email: str) -> bool:
+    """メールアドレスの形式が有効かを判定する。
+
+    Args:
+        email: メールアドレス文字列。
+
+    Returns:
+        有効な形式なら True。
+    """
+    return bool(_EMAIL_PATTERN.match(email.strip()))

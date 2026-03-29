@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 import pytest
 
@@ -61,9 +60,7 @@ class TestCreate:
     ) -> None:
         """作成後にDBにセッションが保存されていること。"""
         token = auth_repo.create(sample_user_id)
-        row = db_conn.execute(
-            "SELECT * FROM auth_sessions WHERE token = ?", (token,)
-        ).fetchone()
+        row = db_conn.execute("SELECT * FROM auth_sessions WHERE token = ?", (token,)).fetchone()
         assert row is not None
         assert row["user_id"] == sample_user_id
 
@@ -99,9 +96,7 @@ class TestCreate:
         expires_at = datetime.fromisoformat(row["expires_at"])
         assert expires_at > datetime.now()
 
-    def test_create_db_error_raises_database_error(
-        self, sample_user_id: str
-    ) -> None:
+    def test_create_db_error_raises_database_error(self, sample_user_id: str) -> None:
         """DB障害時にDatabaseErrorが発生すること。"""
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
@@ -193,14 +188,10 @@ class TestRevoke:
         """無効化後にDBからトークンが削除されること。"""
         token = auth_repo.create(sample_user_id)
         auth_repo.revoke(token)
-        row = db_conn.execute(
-            "SELECT * FROM auth_sessions WHERE token = ?", (token,)
-        ).fetchone()
+        row = db_conn.execute("SELECT * FROM auth_sessions WHERE token = ?", (token,)).fetchone()
         assert row is None
 
-    def test_revoke_nonexistent_token_returns_false(
-        self, auth_repo: AuthSessionRepository
-    ) -> None:
+    def test_revoke_nonexistent_token_returns_false(self, auth_repo: AuthSessionRepository) -> None:
         """存在しないトークンの無効化がFalseを返すこと。"""
         result = auth_repo.revoke("nonexistent_token")
         assert result is False
@@ -303,9 +294,7 @@ class TestCleanupExpired:
         ).fetchone()
         assert row["cnt"] == 1
 
-    def test_cleanup_with_no_expired_returns_zero(
-        self, auth_repo: AuthSessionRepository
-    ) -> None:
+    def test_cleanup_with_no_expired_returns_zero(self, auth_repo: AuthSessionRepository) -> None:
         """期限切れがない場合に0が返ること。"""
         count = auth_repo.cleanup_expired()
         assert count == 0

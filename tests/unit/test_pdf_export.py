@@ -1,6 +1,5 @@
 """PDFエクスポートのユニットテスト。"""
 
-
 from components.pdf_export import build_fallback_pdf, build_reading_report_pdf
 from fortune_engine.models import FortuneResult
 

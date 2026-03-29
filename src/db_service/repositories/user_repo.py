@@ -34,6 +34,7 @@ def _row_to_user_record(row: sqlite3.Row) -> UserRecord:
         preferred_model=row["preferred_model"],
         role=row["role"],
         display_name=row["display_name"] if "display_name" in row.keys() else None,  # noqa: SIM118, SIM401
+        email=row["email"] if "email" in row.keys() else None,  # noqa: SIM118, SIM401
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -201,6 +202,66 @@ class UserRepository:
         if row is None:
             return None
         return _row_to_user_record(row)
+
+    def find_by_email(self, email: str) -> UserRecord | None:
+        """メールアドレスでユーザーを検索する。
+
+        Args:
+            email: メールアドレス。
+
+        Returns:
+            見つかった場合は UserRecord、見つからない場合は None。
+
+        Raises:
+            DatabaseError: 検索に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT * FROM users WHERE email = ?",
+                (email.strip().lower(),),
+            )
+            row = cursor.fetchone()
+        except sqlite3.Error as e:
+            logger.error("メールアドレス検索失敗: %s", e)
+            raise DatabaseError("ユーザーの検索に失敗しました") from e
+
+        if row is None:
+            return None
+        return _row_to_user_record(row)
+
+    def update_email(self, user_id: str, email: str | None) -> bool:
+        """メールアドレスを更新する。
+
+        Args:
+            user_id: ユーザーの UUID。
+            email: メールアドレス。None または空文字で削除。
+
+        Returns:
+            更新成功なら True。
+
+        Raises:
+            DatabaseError: 更新に失敗した場合。
+        """
+        normalized = email.strip().lower() if email and email.strip() else None
+        now = datetime.now().isoformat()
+
+        try:
+            cursor = self._conn.execute(
+                "UPDATE users SET email = ?, updated_at = ? WHERE id = ?",
+                (normalized, now, user_id),
+            )
+            self._conn.commit()
+        except sqlite3.IntegrityError as e:
+            logger.error("メールアドレス更新失敗（重複）: %s", e)
+            raise DatabaseError("このメールアドレスは既に登録されています") from e
+        except sqlite3.Error as e:
+            logger.error("メールアドレス更新失敗: %s", e)
+            raise DatabaseError("メールアドレスの更新に失敗しました") from e
+
+        updated = cursor.rowcount > 0
+        if updated:
+            logger.info("メールアドレスを更新: user_id=%s", user_id)
+        return updated
 
     def update_password(self, user_id: str, new_password: str) -> bool:
         """パスワードを更新する。
@@ -418,6 +479,10 @@ class UserRepository:
                 self._conn.execute(
                     "DELETE FROM auth_sessions WHERE user_id = ?",
                     (user_id,),
+                )
+                self._conn.execute(
+                    "DELETE FROM password_reset_tokens WHERE user_id = ? OR created_by = ?",
+                    (user_id, user_id),
                 )
                 self._conn.execute(
                     "DELETE FROM invitation_tokens WHERE created_by = ?",

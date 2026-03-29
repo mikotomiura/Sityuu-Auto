@@ -116,15 +116,19 @@ fortune-mentoring-system/
 │   │   │   ├── session_repo.py        #     セッションリポジトリ
 │   │   │   ├── prompt_template_repo.py #    プロンプトテンプレートリポジトリ
 │   │   │   ├── user_repo.py           #     ユーザーリポジトリ（認証・BYOK）
-│   │   │   └── invitation_repo.py     #     招待トークンリポジトリ
+│   │   │   ├── invitation_repo.py     #     招待トークンリポジトリ
+│   │   │   └─��� password_reset_repo.py #    パスワードリセットトークンリポ��トリ
 │   │   └── migrations/
 │   │       ├── 001_initial.sql        #     初期スキーマ
 │   │       ├── 003_add_users.sql      #     ユーザー管理テーブル
-│   │       └── 004_add_invitation_tokens.sql #  招待トークンテーブル
+│   │       ├── 004_add_invitation_tokens.sql #  招待トークンテーブル
+│   │       ├── 007_add_password_reset_tokens.sql # パスワードリセットトークンテーブル
+│   │       └── 008_add_email_to_users.sql #      ユーザーテーブルにメール列追加
 │   │
 │   └── utils/                         #   共通ユーティリティ
 │       ├── __init__.py
-│       ├── auth.py                    #     認証ユーティリティ（ログイン・セッション管理）
+│       ├── auth.py                    #     認証ユーティリティ（ログイン・セッション管理・セルフリセット）
+│       ├── email_sender.py            #     メール送信ユーティリティ（SMTP経由リセットリンク送信）
 │       ├── exceptions.py              #     カスタム例外定義
 │       ├── logger.py                  #     ロギング設定
 │       └── validators.py              #     バリデーション関数

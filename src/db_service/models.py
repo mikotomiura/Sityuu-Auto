@@ -79,6 +79,7 @@ class UserRecord:
         preferred_model: 優先モデル名。
         role: ユーザーロール（"admin" または "user"）。
         display_name: UI上の表示名。未設定の場合は None（usernameで代替）。
+        email: メールアドレス。未設定の場合は None。
         created_at: 作成日時（ISO 8601 形式）。
         updated_at: 更新日時（ISO 8601 形式）。
     """
@@ -91,6 +92,7 @@ class UserRecord:
     preferred_model: str | None
     role: str
     display_name: str | None
+    email: str | None
     created_at: str
     updated_at: str
 
@@ -134,6 +136,29 @@ class AuthSessionRecord:
     user_id: str
     token: str
     expires_at: str
+    created_at: str
+
+
+@dataclass(frozen=True)
+class PasswordResetTokenRecord:
+    """パスワードリセットトークンテーブルのレコード。
+
+    Attributes:
+        id: UUID 文字列。
+        token: URL安全なトークン文字列。
+        user_id: リセット対象のユーザーID。
+        created_by: トークンを生成した管理者のユーザーID。
+        expires_at: 有効期限（ISO 8601 形式）。
+        used_at: 使用日時（ISO 8601 形式）。未使用は None。
+        created_at: 作成日時（ISO 8601 形式）。
+    """
+
+    id: str
+    token: str
+    user_id: str
+    created_by: str
+    expires_at: str
+    used_at: str | None
     created_at: str
 
 

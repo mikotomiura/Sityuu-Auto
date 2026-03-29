@@ -40,4 +40,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+#個人用ファイル
+advice.md
+
+
+
 

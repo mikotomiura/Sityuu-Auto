@@ -1,5 +1,6 @@
 """管理者ページ — ユーザー管理・招待リンク管理。"""
 
+import contextlib
 import logging
 from datetime import datetime
 
@@ -8,10 +9,13 @@ import streamlit as st
 from config import (
     INVITATION_DEFAULT_EXPIRY_HOURS,
     INVITATION_TOKEN_QUERY_PARAM,
+    RESET_TOKEN_DEFAULT_EXPIRY_HOURS,
+    RESET_TOKEN_QUERY_PARAM,
     SESSION_KEY_AUTH_ROLE,
 )
 from db_init import get_db_connection
 from db_service.repositories.invitation_repo import InvitationRepository
+from db_service.repositories.password_reset_repo import PasswordResetRepository
 from db_service.repositories.user_repo import UserRepository
 from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import DatabaseError
@@ -215,6 +219,139 @@ def _render_invitation_management(invitation_repo: InvitationRepository) -> None
                     st.error("招待リンクの削除に失敗しました。")
 
 
+def _render_password_reset_management(
+    user_repo: UserRepository,
+    password_reset_repo: PasswordResetRepository,
+) -> None:
+    """パスワードリセットリンク管理セクションを表示する。
+
+    Args:
+        user_repo: UserRepository インスタンス。
+        password_reset_repo: PasswordResetRepository インスタンス。
+    """
+    st.header("パスワードリセット")
+
+    # --- リセットリンク生成 ---
+    st.subheader("リセットリンクを生成")
+
+    try:
+        users = user_repo.find_all()
+    except DatabaseError:
+        st.error("ユーザー一覧の取得に失敗しました。")
+        return
+
+    if not users:
+        st.info("登録されたユーザーはいません。")
+        return
+
+    current_user_id = get_current_user_id()
+
+    # ユーザー選択ドロップダウン
+    user_options = {f"{u.username} ({u.role})": u.id for u in users}
+    selected_label = st.selectbox(
+        "対象ユーザー",
+        options=list(user_options.keys()),
+        help="パスワードをリセットするユーザーを選択してください。",
+    )
+
+    expiry_hours = st.number_input(
+        "有効期限（時間）",
+        min_value=1,
+        max_value=168,
+        value=RESET_TOKEN_DEFAULT_EXPIRY_HOURS,
+        step=1,
+        help="リセットリンクの有効期限を時間単位で指定します。",
+        key="reset_expiry_hours",
+    )
+
+    if st.button("リセットリンクを生成", type="primary", use_container_width=True):
+        if not current_user_id:
+            st.error("ログインが必要です。")
+            return
+
+        if not selected_label:
+            st.error("対象ユーザーを選択してください。")
+            return
+
+        target_user_id = user_options[selected_label]
+
+        try:
+            token = password_reset_repo.create(
+                user_id=target_user_id,
+                created_by=current_user_id,
+                expiry_hours=int(expiry_hours),
+            )
+            base_url = st.context.headers.get("Origin", "http://localhost:8501")
+            reset_url = f"{base_url}/?{RESET_TOKEN_QUERY_PARAM}={token}"
+            st.success("リセットリンクを生成しました。")
+            st.code(reset_url, language=None)
+            st.caption("このURLを対象ユーザーに共有してください。")
+        except DatabaseError:
+            st.error("リセットリンクの生成に失敗しました。")
+
+    st.markdown("---")
+
+    # --- リセットリンク一覧 ---
+    st.subheader("リセットリンク一覧")
+
+    # 期限切れトークンをクリーンアップ
+    with contextlib.suppress(DatabaseError):
+        password_reset_repo.cleanup_expired()
+
+    try:
+        resets = password_reset_repo.find_all()
+    except DatabaseError:
+        st.error("リセットリンクの取得に失敗しました。")
+        return
+
+    if not resets:
+        st.info("リセットリンクはまだ生成されていません。")
+        return
+
+    # ユーザーID→ユーザー名の辞書を事前構築（N+1クエリ防止）
+    user_name_map = {u.id: u.username for u in users}
+
+    for reset in resets:
+        now = datetime.now()
+        expires_at = datetime.fromisoformat(reset.expires_at)
+        is_used = reset.used_at is not None
+        is_expired = now > expires_at
+
+        target_name = user_name_map.get(reset.user_id, "(削除済み)")
+
+        if is_used:
+            status = "使用済み"
+            icon = "\u2705"
+        elif is_expired:
+            status = "期限切れ"
+            icon = "\u274c"
+        else:
+            status = "有効"
+            icon = "\U0001f7e2"
+
+        with st.expander(f"{icon} {target_name} — {status}", expanded=False):
+            col1, col2 = st.columns(2)
+            col1.text(f"対象: {target_name}")
+            col2.text(f"ステータス: {status}")
+
+            col3, col4 = st.columns(2)
+            col3.text(f"有効期限: {reset.expires_at[:16]}")
+            col4.text(f"作成日: {reset.created_at[:16]}")
+
+            if not is_used and not is_expired:
+                base_url = st.context.headers.get("Origin", "http://localhost:8501")
+                reset_url = f"{base_url}/?{RESET_TOKEN_QUERY_PARAM}={reset.token}"
+                st.code(reset_url, language=None)
+
+            if st.button("削除", key=f"del_reset_{reset.id}", use_container_width=True):
+                try:
+                    password_reset_repo.delete(reset.id)
+                    st.success("リセットリンクを削除しました。")
+                    st.rerun()
+                except DatabaseError:
+                    st.error("リセットリンクの削除に失敗しました。")
+
+
 def main() -> None:
     """管理者ページのメイン処理。"""
     if not _require_admin():
@@ -229,14 +366,20 @@ def main() -> None:
     conn = get_db_connection()
     user_repo = UserRepository(conn)
     invitation_repo = InvitationRepository(conn)
+    password_reset_repo = PasswordResetRepository(conn)
 
-    tab_users, tab_invitations = st.tabs(["ユーザー管理", "招待リンク管理"])
+    tab_users, tab_invitations, tab_reset = st.tabs(
+        ["ユーザー管理", "招待リンク管理", "パスワードリセット"]
+    )
 
     with tab_users:
         _render_user_management(user_repo)
 
     with tab_invitations:
         _render_invitation_management(invitation_repo)
+
+    with tab_reset:
+        _render_password_reset_management(user_repo, password_reset_repo)
 
 
 main()

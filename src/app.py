@@ -13,6 +13,7 @@ from config import APP_ICON, APP_TITLE, SESSION_KEY_AUTH_ROLE
 from db_init import get_db_connection
 from db_service.repositories.auth_session_repo import AuthSessionRepository
 from db_service.repositories.invitation_repo import InvitationRepository
+from db_service.repositories.password_reset_repo import PasswordResetRepository
 from db_service.repositories.user_repo import UserRepository
 from utils.auth import get_current_display_name, logout, require_login
 from utils.logger import setup_logging
@@ -40,7 +41,8 @@ conn = get_db_connection()
 user_repo = UserRepository(conn)
 invitation_repo = InvitationRepository(conn)
 auth_session_repo = AuthSessionRepository(conn)
-require_login(user_repo, invitation_repo, auth_session_repo)
+password_reset_repo = PasswordResetRepository(conn)
+require_login(user_repo, invitation_repo, auth_session_repo, password_reset_repo)
 
 # --- 認証済み: サイドバー表示を保証 ---
 st.markdown(
@@ -87,7 +89,10 @@ st.sidebar.markdown(
 st.sidebar.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
 
 dashboard_page = st.Page(
-    "pages/00_dashboard.py", title="ダッシュボード", icon="\U0001f3e0", default=True,
+    "pages/00_dashboard.py",
+    title="ダッシュボード",
+    icon="\U0001f3e0",
+    default=True,
 )
 reading_page = st.Page("pages/01_reading.py", title="鑑定", icon="\u2728")
 history_page = st.Page("pages/02_history.py", title="鑑定履歴", icon="\U0001f4cb")

@@ -28,6 +28,7 @@ from db_service.repositories.user_repo import UserRepository, verify_password
 from utils.auth import get_current_user_id, require_page_auth
 from utils.exceptions import DatabaseError, ValidationError
 from utils.privacy import inject_autocomplete_off
+from utils.validators import is_valid_email
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +125,7 @@ def _render_api_settings() -> None:
     if user_key:
         st.success(f"APIキーが登録済みです（{selected_provider}）。")
     else:
-        st.warning(
-            "APIキーが未設定です。下部の「APIキーの管理」から登録してください。"
-        )
+        st.warning("APIキーが未設定です。下部の「APIキーの管理」から登録してください。")
 
     # --- モデル設定 ---
     default_model = PROVIDER_DEFAULT_MODELS.get(selected_provider, "")
@@ -246,9 +245,7 @@ def _render_account_settings() -> None:
             placeholder="画面上に表示する名前",
             autocomplete="one-time-code",
         )
-        display_submitted = st.form_submit_button(
-            "表示名を変更", use_container_width=True
-        )
+        display_submitted = st.form_submit_button("表示名を変更", use_container_width=True)
 
         if display_submitted:
             stripped_name = new_display_name.strip()
@@ -269,6 +266,45 @@ def _render_account_settings() -> None:
                     st.warning(str(e))
                 except DatabaseError:
                     st.error("表示名の変更に失敗しました。")
+
+    # --- メールアドレス設定 ---
+    st.markdown("---")
+    st.header("メールアドレス")
+    st.caption(
+        "メールアドレスを登録すると、パスワードを忘れた場合にログイン画面から"
+        "セルフサービスでパスワードを再設定できます。"
+    )
+
+    current_email = user.email or ""
+    with st.form("change_email_form"):
+        new_email = st.text_input(
+            "メールアドレス",
+            value=current_email,
+            placeholder="example@mail.com",
+            autocomplete="email",
+        )
+        email_submitted = st.form_submit_button("メールアドレスを保存", use_container_width=True)
+
+        if email_submitted:
+            stripped_email = new_email.strip()
+            if stripped_email == current_email:
+                st.info("メールアドレスに変更はありません。")
+            elif stripped_email and not is_valid_email(stripped_email):
+                st.error("有効なメールアドレスを入力してください。")
+            else:
+                try:
+                    user_repo.update_email(user_id, stripped_email or None)
+                    if stripped_email:
+                        st.success(f"メールアドレスを「{stripped_email}」に更新しました。")
+                    else:
+                        st.success("メールアドレスを削除しました。")
+                    st.rerun()
+                except DatabaseError as e:
+                    error_msg = str(e)
+                    if "既に登録" in error_msg:
+                        st.error("このメールアドレスは既に他のユーザーに登録されています。")
+                    else:
+                        st.error("メールアドレスの更新に失敗しました。")
 
     # --- パスワード変更 ---
     st.markdown("---")

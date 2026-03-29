@@ -4,10 +4,10 @@
 
 ### 1.1 設計思想
 
-- **ローカルファースト:** すべてのデータと処理をローカルPC上で完結させる
+- **Webアプリケーション:** VPS上にデプロイし、ブラウザからアクセスするSaaS
 - **レイヤードアーキテクチャ:** UI層・ロジック層・AI連携層・DB層の4層構造
-- **マルチユーザー対応:** bcrypt認証・セッション管理によるログイン機能。BYOK（個別APIキー管理）対応
-- **外部依存最小化:** 外部通信は LLM API のみ
+- **マルチユーザー対応:** bcrypt認証・セッション管理・招待制登録・パスワードリセット。BYOK（個別APIキー管理）対応
+- **外部依存最小化:** 外部通信は LLM API とSMTPメール送信のみ
 
 ### 1.2 技術スタック
 
@@ -271,8 +271,22 @@ CREATE TABLE users (
     preferred_provider TEXT,
     preferred_model TEXT,
     role TEXT NOT NULL DEFAULT 'user',
+    email TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+-- パスワードリセットトークンテーブル
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id TEXT PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
 -- プロンプトテンプレートテーブル
@@ -340,7 +354,7 @@ DEFAULT_MODEL=claude-3-5-sonnet-20241022
 
 ### 4.2 個人情報保護
 
-- 個人情報はSQLiteファイル内にのみ保存（クラウド非送信）
+- 個人情報はSQLiteファイル内にサーバー上で保存
 - LLM API への送信時、名前・フリガナを匿名化するオプションを提供（`ai_service/pii_sanitizer.py`）
   - デフォルトON: 名前は「相談者様」に置換、フリガナは省略
   - 設定ページの「プライバシー」タブでON/OFF切替可能

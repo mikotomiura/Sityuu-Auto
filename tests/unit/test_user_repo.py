@@ -1,6 +1,5 @@
 """UserRepository のユニットテスト。"""
 
-import json
 import sqlite3
 
 import pytest
@@ -323,8 +322,13 @@ class TestUserRepositoryDelete:
             "(id, token, created_by, used_by, expires_at, used_at, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
-                "inv-1", "tok-123", admin_id, user_id,
-                "2099-01-01T00:00:00", "2026-01-01T00:00:00", "2026-01-01T00:00:00",
+                "inv-1",
+                "tok-123",
+                admin_id,
+                user_id,
+                "2099-01-01T00:00:00",
+                "2026-01-01T00:00:00",
+                "2026-01-01T00:00:00",
             ),
         )
         db_conn.commit()
@@ -386,12 +390,10 @@ class TestUserRepositoryEdgeCases:
         user_repo.update_api_key(user_id, "gemini", "   ")
         assert user_repo.get_api_key(user_id, "gemini") is None
 
-    def test_create_user_with_sql_injection_attempt(
-        self, user_repo: UserRepository
-    ) -> None:
+    def test_create_user_with_sql_injection_attempt(self, user_repo: UserRepository) -> None:
         """SQLインジェクション的な入力がパラメータバインディングで無害化されること。"""
         malicious = "'; DROP TABLE users; --"
-        user_id = user_repo.create(malicious, "password123")
+        user_repo.create(malicious, "password123")
         user = user_repo.find_by_username(malicious)
         assert user is not None
         assert user.username == malicious
@@ -444,9 +446,7 @@ class TestUserRepositoryUpdateDisplayName:
         result = user_repo.update_display_name("nonexistent-id", "名前")
         assert result is False
 
-    def test_update_display_name_updates_timestamp(
-        self, user_repo: UserRepository
-    ) -> None:
+    def test_update_display_name_updates_timestamp(self, user_repo: UserRepository) -> None:
         """更新時にupdated_atが変更されること。"""
         user_id = user_repo.create("testuser", "password123")
         user_before = user_repo.find_by_id(user_id)

@@ -4,6 +4,7 @@ Streamlit の st.session_state を使用してログイン状態を管理する�
 未ログイン時はログインフォームを表示し、st.stop() でページ遷移を阻止する。
 """
 
+import contextlib
 import logging
 import time
 import uuid
@@ -13,6 +14,7 @@ import streamlit as st
 from config import (
     INVITATION_TOKEN_QUERY_PARAM,
     PASSWORD_MIN_LENGTH,
+    RESET_TOKEN_QUERY_PARAM,
     SESSION_KEY_API_MODEL,
     SESSION_KEY_API_PROVIDER,
     SESSION_KEY_AUTH_DISPLAY_NAME,
@@ -25,9 +27,12 @@ from config import (
 from db_service.models import UserRecord
 from db_service.repositories.auth_session_repo import AuthSessionRepository
 from db_service.repositories.invitation_repo import InvitationRepository
+from db_service.repositories.password_reset_repo import PasswordResetRepository
 from db_service.repositories.user_repo import UserRepository
+from utils.email_sender import is_smtp_configured, send_password_reset_email
 from utils.exceptions import AuthenticationError, DatabaseError
 from utils.privacy import inject_autocomplete_off
+from utils.validators import is_valid_email
 
 logger = logging.getLogger(__name__)
 
@@ -111,9 +116,7 @@ def _restore_session_from_user(user: UserRecord) -> None:
     st.session_state[SESSION_KEY_AUTH_USER_ID] = user.id
     st.session_state[SESSION_KEY_AUTH_USERNAME] = user.username
     st.session_state[SESSION_KEY_AUTH_ROLE] = user.role
-    st.session_state[SESSION_KEY_AUTH_DISPLAY_NAME] = (
-        user.display_name or user.username
-    )
+    st.session_state[SESSION_KEY_AUTH_DISPLAY_NAME] = user.display_name or user.username
     if user.preferred_provider:
         st.session_state[SESSION_KEY_API_PROVIDER] = user.preferred_provider
     if user.preferred_model:
@@ -205,20 +208,21 @@ def _login(
 def render_login_form(
     user_repo: UserRepository,
     auth_session_repo: AuthSessionRepository | None = None,
+    password_reset_repo: PasswordResetRepository | None = None,
 ) -> None:
     """ログインフォームを画面中央に表示する。
 
     ログイン成功時は st.rerun() でページを再読み込みする。
+    SMTP設定がある場合は「パスワードを忘れた方」リンクも表示する。
 
     Args:
         user_repo: UserRepository インスタンス。
         auth_session_repo: セッションリポジトリ（トークン生成用）。
+        password_reset_repo: パスワードリセットリポジトリ（セルフリセット用）。
     """
     inject_autocomplete_off()
 
     # サイドバーを視覚的に非表示にする
-    # Note: display:none はStreamlitの内部サイドバー状態を破壊するため、
-    #       visibility + 幅縮小で非表示化しつつDOM状態を保持する
     st.markdown(
         """
         <style>
@@ -236,6 +240,9 @@ def render_login_form(
         unsafe_allow_html=True,
     )
 
+    # セルフリセットフォーム表示中かどうか
+    show_forgot = st.session_state.get("_show_forgot_password", False)
+
     # 中央寄せのレイアウト
     _col_left, col_center, _col_right = st.columns([1, 2, 1])
 
@@ -249,6 +256,10 @@ def render_login_form(
             "</div>",
             unsafe_allow_html=True,
         )
+
+        if show_forgot and password_reset_repo is not None:
+            _render_forgot_password_form(user_repo, password_reset_repo)
+            return
 
         # フォームキーにUUIDを含め、ブラウザが過去入力と紐付けるのを防ぐ
         if "_login_form_id" not in st.session_state:
@@ -283,6 +294,95 @@ def render_login_form(
                             st.error("ユーザー名またはパスワードが正しくありません。")
                     except DatabaseError:
                         st.error("認証処理中にエラーが発生しました。")
+
+        # 「パスワードを忘れた方」リンク（SMTP設定時のみ表示）
+        if (
+            is_smtp_configured()
+            and password_reset_repo is not None
+            and st.button("パスワードを忘れた方", use_container_width=True)
+        ):
+            st.session_state["_show_forgot_password"] = True
+            st.rerun()
+
+
+_RESET_REQUEST_INTERVAL_SECONDS = 180
+_RESET_REQUEST_SESSION_KEY = "_last_reset_request_at"
+
+
+def _render_forgot_password_form(
+    user_repo: UserRepository,
+    password_reset_repo: PasswordResetRepository,
+) -> None:
+    """「パスワードを忘れた方」フォームを表示する。
+
+    メールアドレスを入力してリセットリンクをメール送信する。
+    ユーザーが見つからない場合も同一のメッセージを表示し、情報漏洩を防止する。
+    レート制限: 同一セッションで180秒以内の連続送信をブロックする。
+
+    Args:
+        user_repo: UserRepository インスタンス。
+        password_reset_repo: PasswordResetRepository インスタンス。
+    """
+    st.markdown(
+        '<div class="login-subtitle">パスワードの再設定</div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("登録済みのメールアドレスを入力してください。リセットリンクをメールで送信します。")
+
+    if "_forgot_form_id" not in st.session_state:
+        st.session_state["_forgot_form_id"] = uuid.uuid4().hex[:8]
+    form_id = st.session_state["_forgot_form_id"]
+
+    with st.form(f"forgot_form_{form_id}"):
+        email = st.text_input(
+            "メールアドレス",
+            placeholder="example@mail.com",
+            key=f"forgot_email_{form_id}",
+            autocomplete="email",
+        )
+        submitted = st.form_submit_button(
+            "リセットリンクを送信", type="primary", use_container_width=True
+        )
+
+        if submitted:
+            if not email or not email.strip():
+                st.error("メールアドレスを入力してください。")
+            elif not is_valid_email(email):
+                st.error("有効なメールアドレスを入力してください。")
+            else:
+                # レート制限: 連続送信をブロック
+                last_sent = st.session_state.get(_RESET_REQUEST_SESSION_KEY)
+                if last_sent and (time.time() - last_sent) < _RESET_REQUEST_INTERVAL_SECONDS:
+                    st.warning("しばらく時間をおいてから再度お試しください。")
+                else:
+                    # 成功・失敗に関わらず同じメッセージを表示（情報漏洩防止）
+                    try:
+                        user = user_repo.find_by_email(email.strip())
+                        if user is not None:
+                            token = password_reset_repo.create(
+                                user_id=user.id,
+                                created_by=user.id,  # セルフリセット
+                            )
+                            base_url = st.context.headers.get("Origin", "http://localhost:8501")
+                            reset_url = f"{base_url}/?{RESET_TOKEN_QUERY_PARAM}={token}"
+                            send_password_reset_email(
+                                to_email=user.email or email.strip(),
+                                reset_url=reset_url,
+                                username=user.username,
+                            )
+                    except DatabaseError:
+                        pass  # エラーでも同じメッセージ
+
+                    st.session_state[_RESET_REQUEST_SESSION_KEY] = time.time()
+                    st.success(
+                        "メールアドレスが登録されている場合、"
+                        "リセットリンクをメールで送信しました。"
+                        "メールをご確認ください。"
+                    )
+
+    if st.button("ログイン画面に戻る", use_container_width=True):
+        st.session_state["_show_forgot_password"] = False
+        st.rerun()
 
 
 def _render_registration_form(
@@ -367,6 +467,12 @@ def _render_registration_form(
                 key=f"reg_confirm_{form_id}",
                 autocomplete="new-password",
             )
+            reg_email = st.text_input(
+                "メールアドレス（任意）",
+                placeholder="パスワードリセットに使用します",
+                key=f"reg_email_{form_id}",
+                autocomplete="email",
+            )
             submitted = st.form_submit_button(
                 "アカウントを作成", type="primary", use_container_width=True
             )
@@ -392,6 +498,10 @@ def _render_registration_form(
                             user_repo.delete(user_id)
                             st.error("この招待リンクは既に使用されています。")
                         else:
+                            # メールアドレスが入力されていれば保存
+                            if reg_email and reg_email.strip():
+                                with contextlib.suppress(DatabaseError):
+                                    user_repo.update_email(user_id, reg_email.strip())
                             st.success("アカウントを作成しました。ログインしてください。")
                             st.query_params.clear()
                             logger.info("招待トークンによるユーザー登録: username=%s", username)
@@ -402,6 +512,150 @@ def _render_registration_form(
                             st.error("このユーザー名は既に使用されています。")
                         else:
                             st.error("アカウントの作成に失敗しました。")
+
+        if st.button("ログイン画面へ戻る", use_container_width=True):
+            st.query_params.clear()
+            st.rerun()
+
+
+def _render_password_reset_form(
+    user_repo: UserRepository,
+    password_reset_repo: PasswordResetRepository,
+    token: str,
+    auth_session_repo: AuthSessionRepository | None = None,
+) -> None:
+    """パスワードリセットフォームを表示する。
+
+    Args:
+        user_repo: UserRepository インスタンス。
+        password_reset_repo: PasswordResetRepository インスタンス。
+        token: リセットトークン文字列。
+        auth_session_repo: セッションリポジトリ（リセット後のセッション無効化用）。
+    """
+    inject_autocomplete_off()
+
+    # サイドバーを非表示（リセットフォーム）
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
+        [data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+        }
+        [data-testid="stHeader"] {
+            display: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # トークン検証
+    try:
+        reset_record = password_reset_repo.validate_token(token)
+    except DatabaseError:
+        _col_left, col_center, _col_right = st.columns([1, 2, 1])
+        with col_center:
+            st.error("リセットリンクの検証中にエラーが発生しました。")
+            if st.button("ログイン画面へ", use_container_width=True):
+                st.query_params.clear()
+                st.rerun()
+        return
+
+    if reset_record is None:
+        _col_left, col_center, _col_right = st.columns([1, 2, 1])
+        with col_center:
+            st.error("このリセットリンクは無効です（期限切れまたは使用済み）。")
+            st.info("管理者に新しいリセットリンクの発行を依頼してください。")
+            if st.button("ログイン画面へ", use_container_width=True):
+                st.query_params.clear()
+                st.rerun()
+        return
+
+    # 対象ユーザーの存在確認
+    target_user = user_repo.find_by_id(reset_record.user_id)
+    if target_user is None:
+        _col_left, col_center, _col_right = st.columns([1, 2, 1])
+        with col_center:
+            st.error("対象のユーザーアカウントが見つかりません。")
+            if st.button("ログイン画面へ", use_container_width=True):
+                st.query_params.clear()
+                st.rerun()
+        return
+
+    _col_left, col_center, _col_right = st.columns([1, 2, 1])
+
+    with col_center:
+        st.markdown(
+            '<div class="login-card">'
+            '<div class="login-logo">\U0001f510</div>'
+            '<div class="login-title">Sityuu-Auto</div>'
+            '<div class="login-divider"></div>'
+            '<div class="login-subtitle">パスワード再設定</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.info(f"**{target_user.username}** さんの新しいパスワードを設定してください。")
+
+        if "_reset_form_id" not in st.session_state:
+            st.session_state["_reset_form_id"] = uuid.uuid4().hex[:8]
+        form_id = st.session_state["_reset_form_id"]
+
+        with st.form(f"reset_form_{form_id}"):
+            new_password = st.text_input(
+                "新しいパスワード",
+                type="password",
+                placeholder=f"{PASSWORD_MIN_LENGTH}文字以上",
+                key=f"reset_pass_{form_id}",
+                autocomplete="new-password",
+            )
+            confirm_password = st.text_input(
+                "新しいパスワード（確認）",
+                type="password",
+                placeholder="もう一度入力",
+                key=f"reset_confirm_{form_id}",
+                autocomplete="new-password",
+            )
+            submitted = st.form_submit_button(
+                "パスワードを再設定", type="primary", use_container_width=True
+            )
+
+            if submitted:
+                if not new_password or not confirm_password:
+                    st.error("すべてのフィールドを入力してください。")
+                elif len(new_password) < PASSWORD_MIN_LENGTH:
+                    st.error(f"パスワードは{PASSWORD_MIN_LENGTH}文字以上で設定してください。")
+                elif new_password != confirm_password:
+                    st.error("パスワードが一致しません。")
+                else:
+                    try:
+                        # トークンを先に使用済みにし、再利用を防止
+                        if not password_reset_repo.use_token(token):
+                            st.error("このリセットリンクは既に使用されています。")
+                        else:
+                            # パスワード更新
+                            user_repo.update_password(reset_record.user_id, new_password)
+                            # セキュリティ: 既存セッションを無効化
+                            if auth_session_repo is not None:
+                                try:
+                                    auth_session_repo.revoke_user(reset_record.user_id)
+                                except DatabaseError:
+                                    logger.warning("リセット後のセッション無効化に失敗")
+                            st.success(
+                                "パスワードを再設定しました。"
+                                "新しいパスワードでログインしてください。"
+                            )
+                            st.query_params.clear()
+                            logger.info(
+                                "パスワードリセット完了: user_id=%s",
+                                reset_record.user_id,
+                            )
+                            st.rerun()
+                    except DatabaseError:
+                        st.error("パスワードの再設定に失敗しました。")
 
         if st.button("ログイン画面へ戻る", use_container_width=True):
             st.query_params.clear()
@@ -438,17 +692,20 @@ def require_login(
     user_repo: UserRepository,
     invitation_repo: InvitationRepository | None = None,
     auth_session_repo: AuthSessionRepository | None = None,
+    password_reset_repo: PasswordResetRepository | None = None,
 ) -> None:
     """ログインを必須にする。未ログイン時はフォームを表示して st.stop()。
 
     セッショントークンがクエリパラメータに含まれている場合は自動復元を試みる。
     招待トークンがクエリパラメータに含まれている場合は登録フォームを表示する。
+    リセットトークンがクエリパラメータに含まれている場合はリセットフォームを表示する。
     app.py のページ設定後に呼び出す。
 
     Args:
         user_repo: UserRepository インスタンス。
         invitation_repo: InvitationRepository インスタンス（招待登録用）。
         auth_session_repo: セッションリポジトリ（トークン復元用）。
+        password_reset_repo: パスワードリセットリポジトリ（リセット用）。
     """
     if is_logged_in():
         return
@@ -459,11 +716,17 @@ def require_login(
         st.rerun()
         return
 
+    # パスワードリセットトークンによるリセットフロー
+    reset_token = st.query_params.get(RESET_TOKEN_QUERY_PARAM)
+    if reset_token and password_reset_repo is not None:
+        _render_password_reset_form(user_repo, password_reset_repo, reset_token, auth_session_repo)
+        st.stop()
+
     # 招待トークンによる登録フロー
     token = st.query_params.get(INVITATION_TOKEN_QUERY_PARAM)
     if token and invitation_repo is not None:
         _render_registration_form(user_repo, invitation_repo, token)
         st.stop()
 
-    render_login_form(user_repo, auth_session_repo)
+    render_login_form(user_repo, auth_session_repo, password_reset_repo)
     st.stop()

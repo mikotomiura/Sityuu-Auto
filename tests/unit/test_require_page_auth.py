@@ -40,9 +40,7 @@ class TestRequirePageAuth:
         _mock_streamlit.warning.assert_not_called()
         _mock_streamlit.stop.assert_not_called()
 
-    def test_not_logged_in_no_token_shows_expiry_message(
-        self, _mock_streamlit: MagicMock
-    ) -> None:
+    def test_not_logged_in_no_token_shows_expiry_message(self, _mock_streamlit: MagicMock) -> None:
         """未ログイン・トークンなしの場合は期限切れメッセージを表示して停止。"""
         with pytest.raises(_StopException):
             require_page_auth()

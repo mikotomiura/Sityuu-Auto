@@ -41,6 +41,7 @@ def _make_user(
     display_name: str | None = "テストユーザー",
     preferred_provider: str | None = None,
     preferred_model: str | None = None,
+    email: str | None = None,
 ) -> UserRecord:
     """テスト用 UserRecord を生成する。"""
     return UserRecord(
@@ -52,6 +53,7 @@ def _make_user(
         preferred_model=preferred_model,
         role=role,
         display_name=display_name,
+        email=email,
         created_at="2026-01-01T00:00:00",
         updated_at="2026-01-01T00:00:00",
     )

@@ -108,9 +108,7 @@ def _render_recent_sessions(session_repo: SessionRepository) -> None:
         with st.container(border=True):
             col_name, col_date = st.columns([3, 1])
             with col_name:
-                concern_preview = (
-                    s.concern[:40] + "…" if len(s.concern) > 40 else s.concern
-                )
+                concern_preview = s.concern[:40] + "…" if len(s.concern) > 40 else s.concern
                 st.markdown(f"**{item.client_name}** — {concern_preview}")
             with col_date:
                 st.caption(s.created_at[:10])
@@ -131,9 +129,7 @@ def main() -> None:
     require_page_auth()
     st.title("ダッシュボード")
     st.markdown(
-        '<p class="page-description">'
-        "利用状況の概要と最近の鑑定履歴を確認できます"
-        "</p>",
+        '<p class="page-description">利用状況の概要と最近の鑑定履歴を確認できます</p>',
         unsafe_allow_html=True,
     )
 
