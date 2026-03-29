@@ -5,6 +5,7 @@ import sqlite3
 import uuid
 from datetime import datetime
 
+from db_service.database import begin_transaction
 from db_service.models import PromptTemplateRecord
 from utils.exceptions import DatabaseError
 
@@ -62,18 +63,20 @@ class PromptTemplateRepository:
         now = datetime.now().isoformat()
 
         try:
-            if is_default:
-                self._clear_default()
+            with begin_transaction(self._conn):
+                if is_default:
+                    self._clear_default()
 
-            self._conn.execute(
-                """
-                INSERT INTO prompt_templates
-                    (id, name, system_prompt, description, is_default, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (template_id, name, system_prompt, description, int(is_default), now, now),
-            )
-            self._conn.commit()
+                self._conn.execute(
+                    """
+                    INSERT INTO prompt_templates
+                        (id, name, system_prompt, description, is_default, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (template_id, name, system_prompt, description, int(is_default), now, now),
+                )
+        except DatabaseError:
+            raise
         except sqlite3.IntegrityError as e:
             logger.error("テンプレート名が重複しています: %s", e)
             raise DatabaseError(f"テンプレート名「{name}」は既に使用されています") from e
@@ -196,7 +199,6 @@ class PromptTemplateRepository:
         try:
             sql = f"UPDATE prompt_templates SET {', '.join(updates)} WHERE id = ?"
             cursor = self._conn.execute(sql, params)
-            self._conn.commit()
         except sqlite3.IntegrityError as e:
             logger.error("テンプレート名が重複しています: %s", e)
             raise DatabaseError("指定したテンプレート名は既に使用されています") from e
@@ -224,12 +226,14 @@ class PromptTemplateRepository:
             DatabaseError: 設定に失敗した場合。
         """
         try:
-            self._clear_default()
-            cursor = self._conn.execute(
-                "UPDATE prompt_templates SET is_default = 1, updated_at = ? WHERE id = ?",
-                (datetime.now().isoformat(), template_id),
-            )
-            self._conn.commit()
+            with begin_transaction(self._conn):
+                self._clear_default()
+                cursor = self._conn.execute(
+                    "UPDATE prompt_templates SET is_default = 1, updated_at = ? WHERE id = ?",
+                    (datetime.now().isoformat(), template_id),
+                )
+        except DatabaseError:
+            raise
         except sqlite3.Error as e:
             logger.error("デフォルトテンプレートの設定に失敗: %s", e)
             raise DatabaseError("デフォルトテンプレートの設定に失敗しました") from e
@@ -256,7 +260,6 @@ class PromptTemplateRepository:
                 "DELETE FROM prompt_templates WHERE id = ?",
                 (template_id,),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("テンプレートの削除に失敗: %s", e)
             raise DatabaseError("テンプレートの削除に失敗しました") from e

@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from config import RESET_TOKEN_DEFAULT_EXPIRY_HOURS
+from db_service.database import begin_transaction
 from db_service.models import PasswordResetTokenRecord
 from utils.exceptions import DatabaseError
 
@@ -66,28 +67,30 @@ class PasswordResetRepository:
         expires_at = now + timedelta(hours=expiry_hours)
 
         try:
-            # 同一ユーザーの未使用トークンを削除（1ユーザー1トークンに制限）
-            self._conn.execute(
-                "DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL",
-                (user_id,),
-            )
-            self._conn.execute(
-                """
-                INSERT INTO password_reset_tokens
-                    (id, token, user_id, created_by, expires_at, used_at, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    token_id,
-                    token,
-                    user_id,
-                    created_by,
-                    expires_at.isoformat(),
-                    None,
-                    now.isoformat(),
-                ),
-            )
-            self._conn.commit()
+            with begin_transaction(self._conn):
+                # 同一ユーザーの未使用トークンを削除（1ユーザー1トークンに制限）
+                self._conn.execute(
+                    "DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL",
+                    (user_id,),
+                )
+                self._conn.execute(
+                    """
+                    INSERT INTO password_reset_tokens
+                        (id, token, user_id, created_by, expires_at, used_at, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        token_id,
+                        token,
+                        user_id,
+                        created_by,
+                        expires_at.isoformat(),
+                        None,
+                        now.isoformat(),
+                    ),
+                )
+        except DatabaseError:
+            raise
         except sqlite3.Error as e:
             logger.error("パスワードリセットトークン作成失敗: %s", e)
             raise DatabaseError("パスワードリセットトークンの作成に失敗しました") from e
@@ -170,7 +173,6 @@ class PasswordResetRepository:
                    WHERE token = ? AND used_at IS NULL""",
                 (now, token),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("パスワードリセットトークン使用済み更新失敗: %s", e)
             raise DatabaseError("パスワードリセットトークンの更新に失敗しました") from e
@@ -217,7 +219,6 @@ class PasswordResetRepository:
                 "DELETE FROM password_reset_tokens WHERE id = ?",
                 (reset_id,),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("パスワードリセットトークン削除失敗: %s", e)
             raise DatabaseError("パスワードリセットトークンの削除に失敗しました") from e
@@ -243,7 +244,6 @@ class PasswordResetRepository:
                 "DELETE FROM password_reset_tokens WHERE expires_at < ?",
                 (now,),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("期限切れリセットトークン削除失敗: %s", e)
             raise DatabaseError("期限切れトークンの削除に失敗しました") from e

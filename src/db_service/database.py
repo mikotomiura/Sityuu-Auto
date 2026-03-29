@@ -1,9 +1,15 @@
-"""データベース接続と初期化。"""
+"""データベース接続と初期化。
+
+autocommit モード（``isolation_level=None``）を使用し、各 DML 文を即座にコミットする。
+複数 DML を原子的に実行する場合は :func:`begin_transaction` コンテキストマネージャーを使用する。
+"""
 
 import logging
 import os
 import re
 import sqlite3
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 
 from config import DB_PATH
@@ -19,6 +25,51 @@ _DB_LOCK_TIMEOUT_SECONDS = 30
 
 # 旧拡張子 .db → .sqlite3 への移行マッピング
 _OLD_DB_EXTENSION = ".db"
+
+
+@contextmanager
+def begin_transaction(conn: sqlite3.Connection) -> Generator[sqlite3.Connection, None, None]:
+    """明示的トランザクション（BEGIN IMMEDIATE）のコンテキストマネージャー。
+
+    autocommit モード（``isolation_level=None``）環境で、
+    複数の DML 文を原子的に実行する際に使用する。
+    ``BEGIN IMMEDIATE`` で書き込みロックを即座に取得し、
+    競合を早期検知する。
+
+    既にトランザクション内にある場合（テスト環境等）は、
+    新たなトランザクションを開始せずにそのまま実行する。
+
+    Usage::
+
+        with begin_transaction(conn) as tx:
+            tx.execute("INSERT ...")
+            tx.execute("UPDATE ...")
+        # 成功時は COMMIT、例外時は ROLLBACK される
+
+    Args:
+        conn: SQLite コネクション。
+
+    Yields:
+        トランザクション内のコネクション。
+
+    Raises:
+        DatabaseError: トランザクション開始に失敗した場合。
+    """
+    # 既にトランザクション内にある場合はネストせずそのまま実行する
+    if conn.in_transaction:
+        yield conn
+        return
+
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+    except sqlite3.Error as e:
+        raise DatabaseError(f"トランザクション開始に失敗: {e}") from e
+    try:
+        yield conn
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def create_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
@@ -47,6 +98,7 @@ def create_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
             str(db_path),
             check_same_thread=False,
             timeout=_DB_LOCK_TIMEOUT_SECONDS,
+            isolation_level=None,
         )
 
         # 個人情報を含むDBファイルのパーミッションを所有者のみに制限
@@ -123,6 +175,7 @@ def initialize_database(conn: sqlite3.Connection) -> None:
         logger.info("マイグレーション実行: %s", migration_file.name)
         try:
             sql = migration_file.read_text(encoding="utf-8")
+            # executescript() は内部で COMMIT を発行するため autocommit モードでも安全
             conn.executescript(sql)
         except sqlite3.OperationalError as e:
             # ALTER TABLE での「duplicate column」エラーは冪等実行として許容する
@@ -133,5 +186,4 @@ def initialize_database(conn: sqlite3.Connection) -> None:
         except sqlite3.Error as e:
             raise DatabaseError(f"マイグレーション失敗 ({migration_file.name}): {e}") from e
 
-    conn.commit()
     logger.info("DB初期化完了")

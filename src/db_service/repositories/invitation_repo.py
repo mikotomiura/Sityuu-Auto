@@ -79,7 +79,6 @@ class InvitationRepository:
                     now.isoformat(),
                 ),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("招待トークン作成失敗: %s", e)
             raise DatabaseError("招待トークンの作成に失敗しました") from e
@@ -159,7 +158,6 @@ class InvitationRepository:
                    WHERE token = ? AND used_by IS NULL""",
                 (user_id, now, token),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("招待トークン使用済み更新失敗: %s", e)
             raise DatabaseError("招待トークンの更新に失敗しました") from e
@@ -204,7 +202,6 @@ class InvitationRepository:
                 "DELETE FROM invitation_tokens WHERE id = ?",
                 (invitation_id,),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("招待トークン削除失敗: %s", e)
             raise DatabaseError("招待トークンの削除に失敗しました") from e

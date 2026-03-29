@@ -148,11 +148,11 @@ def get_db_connection() -> sqlite3.Connection:
     if conn is not None:
         try:
             conn.execute("SELECT 1")
-            # 前のリクエストで未コミットのトランザクションが残っていればロールバック
-            # （ページ処理中の例外で commit() に到達しなかったケースの救済）
+            # autocommit モードでも明示的 BEGIN が rollback されずに残る可能性がある
+            # （ページ処理中の例外で begin_transaction の ROLLBACK に到達しなかったケース）
             if conn.in_transaction:
                 logger.warning("未コミットトランザクションを検出、ロールバックします")
-                conn.rollback()
+                conn.execute("ROLLBACK")
             return conn
         except sqlite3.Error as e:
             logger.warning("DB接続の検証またはロールバックに失敗: %s", e)

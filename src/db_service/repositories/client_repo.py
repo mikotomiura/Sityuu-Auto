@@ -102,7 +102,6 @@ class ClientRepository:
                     now,
                 ),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("相談者の保存に失敗: %s", e)
             raise DatabaseError("相談者の保存に失敗しました") from e
@@ -304,7 +303,6 @@ class ClientRepository:
         try:
             sql = f"UPDATE clients SET {', '.join(updates)} {where_clause}"
             cursor = self._conn.execute(sql, params)
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("相談者の更新に失敗: %s", e)
             raise DatabaseError("相談者の更新に失敗しました") from e

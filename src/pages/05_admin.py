@@ -1,6 +1,5 @@
 """管理者ページ — ユーザー管理・招待リンク管理。"""
 
-import contextlib
 import logging
 from datetime import datetime
 
@@ -295,8 +294,10 @@ def _render_password_reset_management(
     st.subheader("リセットリンク一覧")
 
     # 期限切れトークンをクリーンアップ
-    with contextlib.suppress(DatabaseError):
+    try:
         password_reset_repo.cleanup_expired()
+    except DatabaseError:
+        logger.debug("期限切れトークンのクリーンアップをスキップ（非致命的）")
 
     try:
         resets = password_reset_repo.find_all()

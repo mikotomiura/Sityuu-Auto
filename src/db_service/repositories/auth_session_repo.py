@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from config import SESSION_TOKEN_EXPIRY_HOURS, SESSION_TOKEN_LENGTH
+from db_service.database import begin_transaction
 from db_service.models import AuthSessionRecord, UserRecord
 from utils.exceptions import DatabaseError
 
@@ -60,25 +61,27 @@ class AuthSessionRepository:
         expires_at = now + timedelta(hours=SESSION_TOKEN_EXPIRY_HOURS)
 
         try:
-            # 同一ユーザーの既存セッションを削除（1ユーザー1セッション）
-            self._conn.execute(
-                "DELETE FROM auth_sessions WHERE user_id = ?",
-                (user_id,),
-            )
-            self._conn.execute(
-                """
-                INSERT INTO auth_sessions (id, user_id, token, expires_at, created_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    session_id,
-                    user_id,
-                    token,
-                    expires_at.isoformat(),
-                    now.isoformat(),
-                ),
-            )
-            self._conn.commit()
+            with begin_transaction(self._conn):
+                # 同一ユーザーの既存セッションを削除（1ユーザー1セッション）
+                self._conn.execute(
+                    "DELETE FROM auth_sessions WHERE user_id = ?",
+                    (user_id,),
+                )
+                self._conn.execute(
+                    """
+                    INSERT INTO auth_sessions (id, user_id, token, expires_at, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id,
+                        user_id,
+                        token,
+                        expires_at.isoformat(),
+                        now.isoformat(),
+                    ),
+                )
+        except DatabaseError:
+            raise
         except sqlite3.Error as e:
             logger.error("セッショントークン作成失敗: %s", e)
             raise DatabaseError("セッショントークンの作成に失敗しました") from e
@@ -146,7 +149,6 @@ class AuthSessionRepository:
                 "DELETE FROM auth_sessions WHERE token = ?",
                 (token,),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("セッショントークン削除失敗: %s", e)
             raise DatabaseError("セッショントークンの削除に失敗しました") from e
@@ -170,7 +172,6 @@ class AuthSessionRepository:
                 "DELETE FROM auth_sessions WHERE user_id = ?",
                 (user_id,),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("ユーザーセッション全削除失敗: %s", e)
             raise DatabaseError("セッションの削除に失敗しました") from e
@@ -197,7 +198,6 @@ class AuthSessionRepository:
                 "UPDATE auth_sessions SET expires_at = ? WHERE token = ?",
                 (new_expires, token),
             )
-            self._conn.commit()
             if cursor.rowcount > 0:
                 logger.debug("セッショントークン有効期限を延長")
         except sqlite3.Error as e:
@@ -218,7 +218,6 @@ class AuthSessionRepository:
                 "DELETE FROM auth_sessions WHERE expires_at <= ?",
                 (datetime.now().isoformat(),),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("期限切れセッション削除失敗: %s", e)
             raise DatabaseError("期限切れセッションの削除に失敗しました") from e

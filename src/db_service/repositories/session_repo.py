@@ -133,7 +133,6 @@ class SessionRepository:
                     now,
                 ),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("セッションの保存に失敗: %s", e)
             raise DatabaseError("セッションの保存に失敗しました") from e

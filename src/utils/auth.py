@@ -4,7 +4,6 @@ Streamlit の st.session_state を使用してログイン状態を管理する�
 未ログイン時はログインフォームを表示し、st.stop() でページ遷移を阻止する。
 """
 
-import contextlib
 import logging
 import time
 import uuid
@@ -160,8 +159,10 @@ def _try_restore_from_token(
     # トークンはURLに保持（session_state揮発時の再復元用）
 
     # アクティブユーザーのトークン有効期限を延長
-    with contextlib.suppress(DatabaseError):
+    try:
         auth_session_repo.refresh_expiry(token)
+    except DatabaseError:
+        logger.debug("セッショントークン期限延長をスキップ（非致命的）")
 
     logger.info("セッショントークンからログイン復元: username=%s", user.username)
     return True
@@ -376,7 +377,7 @@ def _render_forgot_password_form(
                                 username=user.username,
                             )
                     except DatabaseError:
-                        pass  # エラーでも同じメッセージ
+                        logger.debug("パスワードリセット処理中にDBエラー（情報漏洩防止のため非表示）")
 
                     st.session_state[_RESET_REQUEST_SESSION_KEY] = time.time()
                     st.success(
@@ -505,8 +506,10 @@ def _render_registration_form(
                         else:
                             # メールアドレスが入力されていれば保存
                             if reg_email and reg_email.strip():
-                                with contextlib.suppress(DatabaseError):
+                                try:
                                     user_repo.update_email(user_id, reg_email.strip())
+                                except DatabaseError:
+                                    logger.warning("登録時のメールアドレス保存をスキップ")
                             st.success("アカウントを作成しました。ログインしてください。")
                             st.query_params.clear()
                             logger.info("招待トークンによるユーザー登録: username=%s", username)

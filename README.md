@@ -41,7 +41,7 @@
 | 言語 | Python 3.11+ |
 | UI | Streamlit |
 | 命式計算 | lunar_python |
-| データベース | SQLite |
+| データベース | SQLite（WALモード・autocommit） |
 | AI連携 | Google Gemini API / OpenAI API / Anthropic API |
 | データモデル | Pydantic v2 |
 | 認証 | bcrypt |
@@ -246,7 +246,7 @@ src/
 │   ├── models.py             # AI応答データモデル
 │   └── templates/            # プロンプトテンプレート（Markdown）
 ├── db_service/               # DB層
-│   ├── database.py           # DB接続・マイグレーション実行
+│   ├── database.py           # DB接続・マイグレーション・トランザクション管理
 │   ├── models.py             # DBレコード定義（dataclass）
 │   ├── repositories/         # リポジトリパターン
 │   │   ├── client_repo.py    # 相談者リポジトリ
@@ -319,6 +319,7 @@ refactor(scope): リファクタリングの説明
 - **個人情報**: SQLiteでサーバー上に保存。LLM API送信時はPII匿名化（名前・フリガナを「相談者様」に置換、デフォルトON）
 - **ログ**: 個人情報（名前・生年月日・悩み・パスワード・メールアドレス）はログに出力しない
 - **SQLインジェクション対策**: 全クエリでパラメータバインディングを使用
+- **DBトランザクション安全性**: autocommitモード（`isolation_level=None`）により各DMLが即座にコミットされ、トランザクション蓄積によるカスケード障害を防止。複数DMLの原子性は`BEGIN IMMEDIATE`による明示的トランザクションで保証
 - **DBファイル権限**: 所有者のみ読み書き可（0o600）
 - **メール送信**: リセットリンクメール送信時のレート制限（180秒間隔）、メールアドレス存在確認での情報漏洩防止
 - **HTTPヘッダー**: Referrer-Policy明示化、XSRF保護・CORS設定を有効化

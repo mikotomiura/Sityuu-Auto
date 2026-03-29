@@ -10,6 +10,7 @@ from datetime import datetime
 
 import bcrypt
 
+from db_service.database import begin_transaction
 from db_service.models import UserRecord
 from utils.exceptions import AuthenticationError, DatabaseError, ValidationError
 
@@ -117,7 +118,6 @@ class UserRepository:
                 """,
                 (user_id, username, pw_hash, None, None, None, role, now, now),
             )
-            self._conn.commit()
         except sqlite3.IntegrityError as e:
             logger.error("ユーザー作成失敗（重複）: %s", e)
             raise DatabaseError("ユーザー名が既に使用されています") from e
@@ -250,7 +250,6 @@ class UserRepository:
                 "UPDATE users SET email = ?, updated_at = ? WHERE id = ?",
                 (normalized, now, user_id),
             )
-            self._conn.commit()
         except sqlite3.IntegrityError as e:
             logger.error("メールアドレス更新失敗（重複）: %s", e)
             raise DatabaseError("このメールアドレスは既に登録されています") from e
@@ -284,7 +283,6 @@ class UserRepository:
                 "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
                 (pw_hash, now, user_id),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("パスワード更新失敗: %s", e)
             raise DatabaseError("パスワードの更新に失敗しました") from e
@@ -317,7 +315,6 @@ class UserRepository:
                 "UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?",
                 (display_name.strip(), now, user_id),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("表示名更新失敗: %s", e)
             raise DatabaseError("表示名の更新に失敗しました") from e
@@ -392,7 +389,6 @@ class UserRepository:
                 "UPDATE users SET api_keys_json = ?, updated_at = ? WHERE id = ?",
                 (keys_json, now, user_id),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("APIキー更新失敗: %s", e)
             raise DatabaseError("APIキーの更新に失敗しました") from e
@@ -430,7 +426,6 @@ class UserRepository:
                    WHERE id = ?""",
                 (preferred_provider, preferred_model, now, user_id),
             )
-            self._conn.commit()
         except sqlite3.Error as e:
             logger.error("ユーザー設定の更新失敗: %s", e)
             raise DatabaseError("ユーザー設定の更新に失敗しました") from e
@@ -474,8 +469,8 @@ class UserRepository:
             DatabaseError: 削除に失敗した場合。
         """
         try:
-            # トランザクション内で関連レコードを削除してからユーザーを削除
-            with self._conn:
+            # 明示的トランザクション内で関連レコードを削除してからユーザーを削除
+            with begin_transaction(self._conn):
                 self._conn.execute(
                     "DELETE FROM auth_sessions WHERE user_id = ?",
                     (user_id,),
@@ -496,6 +491,8 @@ class UserRepository:
                     "DELETE FROM users WHERE id = ?",
                     (user_id,),
                 )
+        except DatabaseError:
+            raise
         except sqlite3.Error as e:
             logger.error("ユーザー削除失敗: %s", e)
             raise DatabaseError("ユーザーの削除に失敗しました") from e
