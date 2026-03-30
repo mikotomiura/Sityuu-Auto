@@ -73,8 +73,9 @@ def send_account_deleted_email(to_email: str, username: str) -> bool:
     body_text = (
         f"{username} 様\n\n"
         "管理者により、あなたのアカウントが削除されました。\n\n"
-        "今後、このアカウントでのログインはできなくなります。\n"
-        "ご不明な点がございましたら、���理者にお問い合わせください。\n\n"
+        "今後、このアカウントでのログインはできなくなります。\n\n"
+        "ご不明な点がございましたら、以下の問い合わせフォームよりご連絡ください。\n"
+        "https://docs.google.com/forms/d/1nB63bWYSztx_hrHolJpbE2Y6xKGVTjjxDpiDZ4ZmTTc/viewform\n\n"
         "---\n"
         "Sityuu-Auto — 占い・メンタリング支援システム\n"
     )
