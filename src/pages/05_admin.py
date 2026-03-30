@@ -17,6 +17,7 @@ from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.password_reset_repo import PasswordResetRepository
 from db_service.repositories.user_repo import UserRepository
 from utils.auth import get_current_user_id, require_page_auth
+from utils.email_sender import is_smtp_configured, send_account_deleted_email
 from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
@@ -125,7 +126,12 @@ def _render_user_management(user_repo: UserRepository) -> None:
                             use_container_width=True,
                         ):
                             try:
+                                # 削除前にメールアドレスを取得（削除後は参照不可）
+                                notify_email = user.email
                                 user_repo.delete(user.id)
+                                # 削除通知メールを送信（SMTP設定時かつメール登録済みの場合）
+                                if notify_email and is_smtp_configured():
+                                    send_account_deleted_email(notify_email, user.username)
                                 st.session_state.pop(f"_confirm_del_{user.id}", None)
                                 st.session_state[_ADMIN_SUCCESS_MSG_KEY] = (
                                     f"{user.username} を削除しました。"

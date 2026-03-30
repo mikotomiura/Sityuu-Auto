@@ -545,8 +545,8 @@ def _render_registration_form(
                 autocomplete="new-password",
             )
             reg_email = st.text_input(
-                "メールアドレス（任意）",
-                placeholder="パスワードリセットに使用します",
+                "メールアドレス",
+                placeholder="パスワードリセット・通知に使用します",
                 key=f"reg_email_{form_id}",
                 autocomplete="email",
             )
@@ -555,10 +555,12 @@ def _render_registration_form(
             )
 
             if submitted:
-                if not username or not password or not confirm_password:
+                if not username or not password or not confirm_password or not reg_email:
                     st.error("すべてのフィールドを入力してください。")
                 elif len(username.strip()) < 2:
                     st.error("ユーザー名は2文字以上で入力してください。")
+                elif not is_valid_email(reg_email.strip()):
+                    st.error("有効なメールアドレスを入力してください。")
                 elif len(password) < PASSWORD_MIN_LENGTH:
                     st.error(f"パスワードは{PASSWORD_MIN_LENGTH}文字以上で設定してください。")
                 elif password != confirm_password:
@@ -575,12 +577,11 @@ def _render_registration_form(
                             user_repo.delete(user_id)
                             st.error("この招待リンクは既に使用されています。")
                         else:
-                            # メールアドレスが入力されていれば保存
-                            if reg_email and reg_email.strip():
-                                try:
-                                    user_repo.update_email(user_id, reg_email.strip())
-                                except DatabaseError:
-                                    logger.warning("登録時のメールアドレス保存をスキップ")
+                            # メールアドレスを保存（必須）
+                            try:
+                                user_repo.update_email(user_id, reg_email.strip())
+                            except DatabaseError:
+                                logger.warning("登録時のメールアドレス保存に失敗")
                             st.success("アカウントを作成しました。ログインしてください。")
                             st.query_params.clear()
                             logger.info("招待トークンによるユーザー登録: username=%s", username)

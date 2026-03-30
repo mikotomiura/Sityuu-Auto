@@ -40,21 +40,8 @@ def send_password_reset_email(to_email: str, reset_url: str, username: str) -> b
         username: 対象ユーザーのユーザー名（メール本文に表示）。
 
     Returns:
-        送信成功なら True。
-
-    Raises:
-        なし。送信失敗時はFalseを返しログに記録する。
+        送信成功なら True。送信失敗時は False を返しログに記録する。
     """
-    host = os.environ.get(SMTP_HOST_ENV, "")
-    port = int(os.environ.get(SMTP_PORT_ENV, str(SMTP_DEFAULT_PORT)))
-    user = os.environ.get(SMTP_USER_ENV, "")
-    password = os.environ.get(SMTP_PASSWORD_ENV, "")
-    from_addr = os.environ.get(SMTP_FROM_ENV, "")
-
-    if not host or not from_addr:
-        logger.error("SMTP設定が不完全です")
-        return False
-
     subject = "【Sityuu-Auto】パスワード再設定のご案内"
     body_text = (
         f"{username} 様\n\n"
@@ -66,6 +53,56 @@ def send_password_reset_email(to_email: str, reset_url: str, username: str) -> b
         "---\n"
         "Sityuu-Auto — 占い・メンタリング支援システム\n"
     )
+
+    return _send_email(to_email, subject, body_text, log_label="パスワードリセットメール")
+
+
+def send_account_deleted_email(to_email: str, username: str) -> bool:
+    """アカウント削除通知メールを送信する。
+
+    管理者によるアカウント削除時に、ユーザーのメールアドレスに通知する。
+
+    Args:
+        to_email: 送信先メールアドレス。
+        username: 削除されたユーザーのユーザー名（メール本文に表示）。
+
+    Returns:
+        送信成功なら True。
+    """
+    subject = "【Sityuu-Auto】アカウント削除のお知らせ"
+    body_text = (
+        f"{username} 様\n\n"
+        "管理者により、あなたのアカウントが削除されました。\n\n"
+        "今後、このアカウントでのログインはできなくなります。\n"
+        "ご不明な点がございましたら、���理者にお問い合わせください。\n\n"
+        "---\n"
+        "Sityuu-Auto — 占い・メンタリング支援システム\n"
+    )
+
+    return _send_email(to_email, subject, body_text, log_label="アカウント削除通知メール")
+
+
+def _send_email(to_email: str, subject: str, body_text: str, log_label: str) -> bool:
+    """��通メール送信処理。
+
+    Args:
+        to_email: 送信先メールアドレス。
+        subject: メール件名。
+        body_text: メール本文（プレーンテキスト）。
+        log_label: ログ出力用のラベル。
+
+    Returns:
+        送信成功なら True。送信失敗時は False を返しログに記録する。
+    """
+    host = os.environ.get(SMTP_HOST_ENV, "")
+    port = int(os.environ.get(SMTP_PORT_ENV, str(SMTP_DEFAULT_PORT)))
+    user = os.environ.get(SMTP_USER_ENV, "")
+    password = os.environ.get(SMTP_PASSWORD_ENV, "")
+    from_addr = os.environ.get(SMTP_FROM_ENV, "")
+
+    if not host or not from_addr:
+        logger.error("SMTP設定が不完全です")
+        return False
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -82,10 +119,10 @@ def send_password_reset_email(to_email: str, reset_url: str, username: str) -> b
             if user and password:
                 server.login(user, password)
             server.sendmail(from_addr, [to_email], msg.as_string())
-        # メールアドレスをマスクしてログ出力（個人情報保護）
+        # SECURITY: メールアドレスをマスクしてログ出力（個人情報保護）
         masked = to_email[:2] + "***@***"
-        logger.info("パスワードリセットメールを送信: to=%s", masked)
+        logger.info("%sを送信: to=%s", log_label, masked)
         return True
     except (smtplib.SMTPException, OSError) as e:
-        logger.error("メール送信失敗: %s", e)
+        logger.error("%s送信失敗: %s", log_label, e)
         return False

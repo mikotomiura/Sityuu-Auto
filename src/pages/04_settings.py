@@ -294,8 +294,8 @@ def _render_account_settings() -> None:
     st.markdown("---")
     st.header("メールアドレス")
     st.caption(
-        "メールアドレスを登録すると、パスワードを忘れた場合にログイン画面から"
-        "セルフサービスでパスワードを再設定できます。"
+        "パスワードリセットやアカウント関連の通知に使用します。"
+        "メールアドレスの登録は必須です。"
     )
 
     current_email = user.email or ""
@@ -310,19 +310,18 @@ def _render_account_settings() -> None:
 
         if email_submitted:
             stripped_email = new_email.strip()
-            if stripped_email == current_email:
+            if not stripped_email:
+                st.error("メールアドレスは必須です。")
+            elif stripped_email == current_email:
                 st.info("メールアドレスに変更はありません。")
-            elif stripped_email and not is_valid_email(stripped_email):
+            elif not is_valid_email(stripped_email):
                 st.error("有効なメールアドレスを入力してください。")
             else:
                 try:
-                    user_repo.update_email(user_id, stripped_email or None)
-                    if stripped_email:
-                        st.session_state[_SUCCESS_MSG_KEY] = (
-                            f"メールアドレスを「{stripped_email}」に更新しました。"
-                        )
-                    else:
-                        st.session_state[_SUCCESS_MSG_KEY] = "メールアドレスを削除しました。"
+                    user_repo.update_email(user_id, stripped_email)
+                    st.session_state[_SUCCESS_MSG_KEY] = (
+                        f"メールアドレスを「{stripped_email}」に更新しました。"
+                    )
                     st.rerun()
                 except DatabaseError as e:
                     error_msg = str(e)
