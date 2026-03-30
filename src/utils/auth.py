@@ -36,14 +36,16 @@ from utils.validators import is_valid_email
 
 logger = logging.getLogger(__name__)
 
-# --- Cookie バックアップ（query_params 消失時のフォールバック） ---
+# --- セッショントークン永続化（3層） ---
+# Layer 1: session_state — ページ遷移中に query_params が消えた場合の即時復元
+# Layer 2: Cookie — WebSocket再接続で session_state が消えた場合のフォールバック
+# Layer 3: query_params — URL直接アクセス時の復元
 _SESSION_COOKIE_NAME = "sityuu_session"
+_SESSION_STATE_TOKEN_KEY = "_persisted_session_token"
 
 
 def _get_token_from_cookie() -> str | None:
     """HTTP Cookie ヘッダーからセッショントークンを読み取る。
-
-    Streamlit の query_params が消失した場合のフォールバック手段。
 
     Returns:
         トークン文字列。Cookie 未設定の場合は None。
@@ -58,37 +60,77 @@ def _get_token_from_cookie() -> str | None:
     return None
 
 
-def _set_session_cookie(token: str) -> None:
-    """ブラウザ Cookie にセッショントークンを保存する JavaScript を注入する。
+def _get_token_from_session_state() -> str | None:
+    """session_state からセッショントークンを読み取る。
 
-    SECURITY: HttpOnly 属性は JavaScript の ``document.cookie`` API では
-    設定できないため、XSS 経由の Cookie 窃取リスクが残る。
-    これは Streamlit の ``st.html()`` 経由でしか Cookie を設定できないという
-    フレームワーク上の制約による意図的なトレードオフである。
-    主防御線はあくまで query_params のセッショントークンであり、
+    st.navigation() のページ遷移で query_params が消失した場合に、
+    同一 WebSocket セッション内であれば session_state から復元できる。
+
+    Returns:
+        トークン文字列。未保存の場合は None。
+    """
+    return st.session_state.get(_SESSION_STATE_TOKEN_KEY)
+
+
+def _persist_token(token: str) -> None:
+    """セッショントークンを全永続化レイヤーに保存する。
+
+    SECURITY: Cookie の HttpOnly 属性は JavaScript の ``document.cookie`` API
+    では設定できないため、XSS 経由の Cookie 窃取リスクが残る。
+    主防御線はあくまでサーバー側のトークン検証であり、
     Cookie はフォールバック手段として補助的に使用する。
 
     Args:
         token: 保存するセッショントークン。
     """
+    # Layer 1: session_state（ページ遷移で即復元可能）
+    st.session_state[_SESSION_STATE_TOKEN_KEY] = token
+
+    # Layer 2: query_params（URLに保持）
+    st.query_params[SESSION_TOKEN_QUERY_PARAM] = token
+
+    # Layer 3: Cookie（WebSocket切断後も残る）
+    # Note: window.parent.document.cookie で親ページドメインに設定
+    #       st.html() は iframe 内で実行されるため parent 経由が必須
     max_age = SESSION_TOKEN_EXPIRY_HOURS * 3600
-    # SECURITY: Secure 属性で HTTPS 以外での送信を防止
     st.html(
         "<script>"
-        f"document.cookie='{_SESSION_COOKIE_NAME}={token};"
-        f"path=/;max-age={max_age};SameSite=Strict;Secure';"
+        "try{"
+        f"window.parent.document.cookie='{_SESSION_COOKIE_NAME}={token};"
+        f"path=/;max-age={max_age};SameSite=Lax';"
+        "}catch(e){}"
         "</script>"
     )
 
 
-def _clear_session_cookie() -> None:
-    """ブラウザ Cookie からセッショントークンを削除する JavaScript を注入する。"""
+def _clear_persisted_token() -> None:
+    """全永続化レイヤーからセッショントークンを削除する。"""
+    st.session_state.pop(_SESSION_STATE_TOKEN_KEY, None)
+
+    if SESSION_TOKEN_QUERY_PARAM in st.query_params:
+        del st.query_params[SESSION_TOKEN_QUERY_PARAM]
+
     st.html(
         "<script>"
-        f"document.cookie='{_SESSION_COOKIE_NAME}=;"
-        "path=/;max-age=0;SameSite=Strict;Secure';"
+        "try{"
+        f"window.parent.document.cookie='{_SESSION_COOKIE_NAME}=;"
+        "path=/;max-age=0;SameSite=Lax';"
+        "}catch(e){}"
         "</script>"
     )
+
+
+def ensure_token_in_query_params() -> None:
+    """query_params にトークンが無い場合、session_state から再注入する。
+
+    st.navigation() のページ遷移で query_params が消失する問題の対策。
+    app.py で毎回呼び出す。
+    """
+    if SESSION_TOKEN_QUERY_PARAM in st.query_params:
+        return
+    token = _get_token_from_session_state()
+    if token:
+        st.query_params[SESSION_TOKEN_QUERY_PARAM] = token
 
 
 def is_logged_in() -> bool:
@@ -137,19 +179,18 @@ def logout(auth_session_repo: AuthSessionRepository | None = None) -> None:
         auth_session_repo: セッションリポジトリ。指定時はDBトークンも無効化する。
     """
     # DBセッショントークンを無効化
-    session_token = st.query_params.get(SESSION_TOKEN_QUERY_PARAM)
+    session_token = (
+        st.query_params.get(SESSION_TOKEN_QUERY_PARAM)
+        or _get_token_from_session_state()
+    )
     if session_token and auth_session_repo is not None:
         try:
             auth_session_repo.revoke(session_token)
         except DatabaseError:
             logger.warning("セッショントークン無効化に失敗")
 
-    # URLからセッションパラメータを削除
-    if SESSION_TOKEN_QUERY_PARAM in st.query_params:
-        del st.query_params[SESSION_TOKEN_QUERY_PARAM]
-
-    # Cookie からもトークンを削除
-    _clear_session_cookie()
+    # 全永続化レイヤーからトークンを削除
+    _clear_persisted_token()
 
     # session_stateをクリア
     for key in (
@@ -198,17 +239,23 @@ def _try_restore_from_token(
     Returns:
         復元成功なら True。
     """
+    # 3層フォールバックでトークンを取得
+    # Layer 3 → Layer 1 → Layer 2 の優先順位
     token = st.query_params.get(SESSION_TOKEN_QUERY_PARAM)
+    source = "query_params"
 
-    # query_params にトークンがない場合、Cookie からフォールバック取得
-    restored_from_cookie = False
+    if not token:
+        token = _get_token_from_session_state()
+        source = "session_state"
+
     if not token:
         token = _get_token_from_cookie()
-        if token:
-            restored_from_cookie = True
-            logger.debug("Cookie からセッショントークンを復元")
-        else:
-            return False
+        source = "cookie"
+
+    if not token:
+        return False
+
+    logger.debug("セッショントークンを %s から取得", source)
 
     try:
         user = auth_session_repo.validate_token(token)
@@ -217,16 +264,14 @@ def _try_restore_from_token(
         return False
 
     if user is None:
-        # 無効なトークンをURLから削除
-        if SESSION_TOKEN_QUERY_PARAM in st.query_params:
-            del st.query_params[SESSION_TOKEN_QUERY_PARAM]
+        # 無効なトークン → 全レイヤーからクリア
+        _clear_persisted_token()
         return False
 
     _restore_session_from_user(user)
 
-    # query_params にトークンを復元（Cookie から復元した場合）
-    if restored_from_cookie:
-        st.query_params[SESSION_TOKEN_QUERY_PARAM] = token
+    # 全レイヤーにトークンを再保存（消失したレイヤーを補填）
+    _persist_token(token)
 
     # アクティブユーザーのトークン有効期限を延長
     try:
@@ -234,7 +279,7 @@ def _try_restore_from_token(
     except DatabaseError:
         logger.debug("セッショントークン期限延長をスキップ（非致命的）")
 
-    logger.info("セッショントークンからログイン復元: username=%s", user.username)
+    logger.info("セッショントークンからログイン復元 (via %s): username=%s", source, user.username)
     return True
 
 
@@ -260,12 +305,11 @@ def _login(
         _restore_session_from_user(user)
         st.session_state.pop(SESSION_KEY_AUTH_FAIL_COUNT, None)
 
-        # セッショントークンを生成してURLとCookieに保存
+        # セッショントークンを生成して全レイヤーに保存
         if auth_session_repo is not None:
             try:
                 token = auth_session_repo.create(user.id)
-                st.query_params[SESSION_TOKEN_QUERY_PARAM] = token
-                _set_session_cookie(token)
+                _persist_token(token)
                 auth_session_repo.cleanup_expired()
             except DatabaseError:
                 logger.warning("セッショントークン生成に失敗（ログインは継続）")
@@ -753,7 +797,9 @@ def require_page_auth() -> None:
         return
 
     has_token = bool(
-        st.query_params.get(SESSION_TOKEN_QUERY_PARAM) or _get_token_from_cookie()
+        st.query_params.get(SESSION_TOKEN_QUERY_PARAM)
+        or _get_token_from_session_state()
+        or _get_token_from_cookie()
     )
 
     if has_token:

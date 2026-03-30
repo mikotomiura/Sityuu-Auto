@@ -15,7 +15,7 @@ from db_service.repositories.auth_session_repo import AuthSessionRepository
 from db_service.repositories.invitation_repo import InvitationRepository
 from db_service.repositories.password_reset_repo import PasswordResetRepository
 from db_service.repositories.user_repo import UserRepository
-from utils.auth import get_current_display_name, logout, require_login
+from utils.auth import ensure_token_in_query_params, get_current_display_name, logout, require_login
 from utils.logger import setup_logging
 
 load_dotenv()
@@ -35,6 +35,9 @@ st.markdown(
     '<meta name="referrer" content="no-referrer">',
     unsafe_allow_html=True,
 )
+
+# --- セッショントークンの補填（st.navigation() によるquery_params消失対策） ---
+ensure_token_in_query_params()
 
 # --- 認証ゲート ---
 conn = get_db_connection()
