@@ -60,6 +60,7 @@ _READING_STATE_KEYS = (
     SESSION_KEY_CLIENT_BIRTH_TIME,
     SESSION_KEY_CLIENT_GENDER,
     SESSION_KEY_SESSION_SAVED,
+    "_save_toast_shown",
 )
 
 
@@ -158,15 +159,33 @@ def _save_session_to_db(
         session_repo = SessionRepository(conn)
         current_user_id = get_current_user_id()
 
-        # 相談者を保存
-        client_id = client_repo.save(
+        # 重複チェック: 同一名前・同一生年月日の相談者が既に存在する場合は再利用
+        existing = client_repo.find_duplicate(
             name=client_name,
             birth_date=birth_date_val,
-            birth_time=birth_time_val,
-            gender=gender_val,
-            name_kana=client_name_kana,
-            user_id=current_user_id,
+            user_id=current_user_id or "",
         )
+        if existing:
+            client_id = existing.id
+            # 最新の情報で更新（フリガナ・性別・出生時間が異なる場合）
+            client_repo.update(
+                client_id=client_id,
+                name_kana=client_name_kana,
+                birth_time=birth_time_val,
+                gender=gender_val,
+                user_id=current_user_id,
+            )
+            logger.info("既存の相談者を再利用: client_id=%s", client_id)
+        else:
+            # 新規作成
+            client_id = client_repo.save(
+                name=client_name,
+                birth_date=birth_date_val,
+                birth_time=birth_time_val,
+                gender=gender_val,
+                name_kana=client_name_kana,
+                user_id=current_user_id,
+            )
 
         # セッションを保存
         session_repo.save(
@@ -386,6 +405,10 @@ def main() -> None:
         st.markdown('<div class="fancy-divider"></div>', unsafe_allow_html=True)
         if st.session_state.get(SESSION_KEY_SESSION_SAVED):
             st.success("鑑定結果は自動的に保存されました。")
+            # トースト通知は1回だけ表示（rerun毎の重複防止）
+            if not st.session_state.get("_save_toast_shown"):
+                st.toast("鑑定結果の保存が完了しました", icon="\u2705")
+                st.session_state["_save_toast_shown"] = True
         elif st.session_state.get(SESSION_KEY_SESSION_SAVED) is False:
             st.warning(
                 "鑑定結果の保存に失敗しました。"
@@ -399,6 +422,7 @@ def main() -> None:
                 )
                 if saved:
                     st.session_state[SESSION_KEY_SESSION_SAVED] = True
+                    st.toast("鑑定結果の再保存が完了しました", icon="\u2705")
                     st.rerun()
         if st.button(
             "新規鑑定を開始",

@@ -153,6 +153,7 @@ def _render_detail_view(
     # --- 更新成功メッセージ（rerun後に表示） ---
     if st.session_state.pop(SESSION_KEY_CLIENTS_EDIT_SUCCESS, False):
         st.success("相談者情報を更新しました。")
+        st.toast("相談者情報の保存が完了しました", icon="\u2705")
 
     # --- 相談者情報の編集 ---
     st.markdown("---")

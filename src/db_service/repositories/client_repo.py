@@ -109,6 +109,42 @@ class ClientRepository:
         logger.info("相談者を保存: client_id=%s", client_id)
         return client_id
 
+    def find_duplicate(
+        self,
+        name: str,
+        birth_date: date,
+        user_id: str,
+    ) -> ClientRecord | None:
+        """同一ユーザー・同一名前・同一生年月日の相談者が存在するか検索する。
+
+        Args:
+            name: 相談者の名前。
+            birth_date: 生年月日。
+            user_id: データ所有者のユーザーID。
+
+        Returns:
+            重複が見つかった場合は ClientRecord、見つからない場合は None。
+
+        Raises:
+            DatabaseError: 検索に失敗した場合。
+        """
+        try:
+            cursor = self._conn.execute(
+                "SELECT * FROM clients"
+                " WHERE name = ? AND birth_date = ? AND user_id = ?"
+                " ORDER BY updated_at DESC LIMIT 1",
+                (name, birth_date.isoformat(), user_id),
+            )
+            row = cursor.fetchone()
+        except sqlite3.Error as e:
+            logger.error("相談者の重複検索に失敗: %s", e)
+            raise DatabaseError("相談者の重複検索に失敗しました") from e
+
+        if row is None:
+            return None
+
+        return _row_to_client_record(row)
+
     def find_by_id(self, client_id: str, user_id: str = "") -> ClientRecord | None:
         """IDで相談者を検索する。
 

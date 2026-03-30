@@ -21,6 +21,7 @@ from config import (
     SESSION_KEY_AUTH_ROLE,
     SESSION_KEY_AUTH_USER_ID,
     SESSION_KEY_AUTH_USERNAME,
+    SESSION_TOKEN_EXPIRY_HOURS,
     SESSION_TOKEN_QUERY_PARAM,
 )
 from db_service.models import UserRecord
@@ -34,6 +35,60 @@ from utils.privacy import inject_autocomplete_off
 from utils.validators import is_valid_email
 
 logger = logging.getLogger(__name__)
+
+# --- Cookie バックアップ（query_params 消失時のフォールバック） ---
+_SESSION_COOKIE_NAME = "sityuu_session"
+
+
+def _get_token_from_cookie() -> str | None:
+    """HTTP Cookie ヘッダーからセッショントークンを読み取る。
+
+    Streamlit の query_params が消失した場合のフォールバック手段。
+
+    Returns:
+        トークン文字列。Cookie 未設定の場合は None。
+    """
+    cookie_header = st.context.headers.get("Cookie", "")
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if part.startswith(f"{_SESSION_COOKIE_NAME}="):
+            value = part.split("=", 1)[1]
+            if value:
+                return value
+    return None
+
+
+def _set_session_cookie(token: str) -> None:
+    """ブラウザ Cookie にセッショントークンを保存する JavaScript を注入する。
+
+    SECURITY: HttpOnly 属性は JavaScript の ``document.cookie`` API では
+    設定できないため、XSS 経由の Cookie 窃取リスクが残る。
+    これは Streamlit の ``st.html()`` 経由でしか Cookie を設定できないという
+    フレームワーク上の制約による意図的なトレードオフである。
+    主防御線はあくまで query_params のセッショントークンであり、
+    Cookie はフォールバック手段として補助的に使用する。
+
+    Args:
+        token: 保存するセッショントークン。
+    """
+    max_age = SESSION_TOKEN_EXPIRY_HOURS * 3600
+    # SECURITY: Secure 属性で HTTPS 以外での送信を防止
+    st.html(
+        "<script>"
+        f"document.cookie='{_SESSION_COOKIE_NAME}={token};"
+        f"path=/;max-age={max_age};SameSite=Strict;Secure';"
+        "</script>"
+    )
+
+
+def _clear_session_cookie() -> None:
+    """ブラウザ Cookie からセッショントークンを削除する JavaScript を注入する。"""
+    st.html(
+        "<script>"
+        f"document.cookie='{_SESSION_COOKIE_NAME}=;"
+        "path=/;max-age=0;SameSite=Strict;Secure';"
+        "</script>"
+    )
 
 
 def is_logged_in() -> bool:
@@ -93,6 +148,9 @@ def logout(auth_session_repo: AuthSessionRepository | None = None) -> None:
     if SESSION_TOKEN_QUERY_PARAM in st.query_params:
         del st.query_params[SESSION_TOKEN_QUERY_PARAM]
 
+    # Cookie からもトークンを削除
+    _clear_session_cookie()
+
     # session_stateをクリア
     for key in (
         SESSION_KEY_AUTH_USER_ID,
@@ -141,8 +199,16 @@ def _try_restore_from_token(
         復元成功なら True。
     """
     token = st.query_params.get(SESSION_TOKEN_QUERY_PARAM)
+
+    # query_params にトークンがない場合、Cookie からフォールバック取得
+    restored_from_cookie = False
     if not token:
-        return False
+        token = _get_token_from_cookie()
+        if token:
+            restored_from_cookie = True
+            logger.debug("Cookie からセッショントークンを復元")
+        else:
+            return False
 
     try:
         user = auth_session_repo.validate_token(token)
@@ -152,11 +218,15 @@ def _try_restore_from_token(
 
     if user is None:
         # 無効なトークンをURLから削除
-        del st.query_params[SESSION_TOKEN_QUERY_PARAM]
+        if SESSION_TOKEN_QUERY_PARAM in st.query_params:
+            del st.query_params[SESSION_TOKEN_QUERY_PARAM]
         return False
 
     _restore_session_from_user(user)
-    # トークンはURLに保持（session_state揮発時の再復元用）
+
+    # query_params にトークンを復元（Cookie から復元した場合）
+    if restored_from_cookie:
+        st.query_params[SESSION_TOKEN_QUERY_PARAM] = token
 
     # アクティブユーザーのトークン有効期限を延長
     try:
@@ -190,11 +260,12 @@ def _login(
         _restore_session_from_user(user)
         st.session_state.pop(SESSION_KEY_AUTH_FAIL_COUNT, None)
 
-        # セッショントークンを生成してURLに埋め込む
+        # セッショントークンを生成してURLとCookieに保存
         if auth_session_repo is not None:
             try:
                 token = auth_session_repo.create(user.id)
                 st.query_params[SESSION_TOKEN_QUERY_PARAM] = token
+                _set_session_cookie(token)
                 auth_session_repo.cleanup_expired()
             except DatabaseError:
                 logger.warning("セッショントークン生成に失敗（ログインは継続）")
@@ -680,7 +751,9 @@ def require_page_auth() -> None:
     if is_logged_in():
         return
 
-    has_token = bool(st.query_params.get(SESSION_TOKEN_QUERY_PARAM))
+    has_token = bool(
+        st.query_params.get(SESSION_TOKEN_QUERY_PARAM) or _get_token_from_cookie()
+    )
 
     if has_token:
         # トークンが残っている場合、ページ側でも復元を試行する

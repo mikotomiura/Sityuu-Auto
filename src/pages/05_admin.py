@@ -21,6 +21,16 @@ from utils.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
+_ADMIN_SUCCESS_MSG_KEY = "_admin_success_msg"
+
+
+def _show_admin_deferred_success() -> None:
+    """session_state に保存された管理者操作の成功メッセージを表示する。"""
+    msg = st.session_state.pop(_ADMIN_SUCCESS_MSG_KEY, None)
+    if msg:
+        st.success(msg)
+        st.toast(msg, icon="\u2705")
+
 
 def _require_admin() -> bool:
     """管理者ロールを確認する。
@@ -46,6 +56,7 @@ def _render_user_management(user_repo: UserRepository) -> None:
         user_repo: UserRepository インスタンス。
     """
     st.header("ユーザー管理")
+    _show_admin_deferred_success()
 
     try:
         users = user_repo.find_all()
@@ -71,6 +82,13 @@ def _render_user_management(user_repo: UserRepository) -> None:
             col1.text(f"ロール: {user.role}")
             col2.text(f"作成日: {user.created_at[:10]}")
             col3.text(f"更新日: {user.updated_at[:10]}")
+
+            # 表示名・メールアドレス
+            col_name, col_email = st.columns(2)
+            display_name = user.display_name or "(未設定)"
+            email_display = user.email or "(未設定)"
+            col_name.text(f"表示名: {display_name}")
+            col_email.text(f"メール: {email_display}")
 
             if user.api_keys_json:
                 st.caption("APIキー: 登録済み")
@@ -109,7 +127,9 @@ def _render_user_management(user_repo: UserRepository) -> None:
                             try:
                                 user_repo.delete(user.id)
                                 st.session_state.pop(f"_confirm_del_{user.id}", None)
-                                st.success(f"{user.username} を削除しました。")
+                                st.session_state[_ADMIN_SUCCESS_MSG_KEY] = (
+                                    f"{user.username} を削除しました。"
+                                )
                                 st.rerun()
                             except DatabaseError:
                                 st.error("ユーザーの削除に失敗しました。")
@@ -158,6 +178,7 @@ def _render_invitation_management(invitation_repo: InvitationRepository) -> None
             base_url = st.context.headers.get("Origin", "http://localhost:8501")
             invite_url = f"{base_url}/?{INVITATION_TOKEN_QUERY_PARAM}={token}"
             st.success("招待リンクを生成しました。")
+            st.toast("招待リンクの生成が完了しました", icon="\u2705")
             st.code(invite_url, language=None)
             st.caption("このURLを登録希望者に共有してください。")
         except DatabaseError:
@@ -283,6 +304,7 @@ def _render_password_reset_management(
             base_url = st.context.headers.get("Origin", "http://localhost:8501")
             reset_url = f"{base_url}/?{RESET_TOKEN_QUERY_PARAM}={token}"
             st.success("リセットリンクを生成しました。")
+            st.toast("リセットリンクの生成が完了しました", icon="\u2705")
             st.code(reset_url, language=None)
             st.caption("このURLを対象ユーザーに共有してください。")
         except DatabaseError:

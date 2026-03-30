@@ -55,6 +55,7 @@ def _show_deferred_success() -> None:
     msg = st.session_state.pop(_SUCCESS_MSG_KEY, None)
     if msg:
         st.success(msg)
+        st.toast(msg, icon="\u2705")
 
 
 def _initialize_state() -> None:
