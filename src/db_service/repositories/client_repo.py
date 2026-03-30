@@ -6,6 +6,7 @@ import uuid
 from datetime import date, datetime
 from enum import Enum, auto
 
+from db_service.database import begin_transaction
 from db_service.models import ClientRecord
 from utils.exceptions import DatabaseError
 
@@ -347,3 +348,42 @@ class ClientRepository:
         if updated:
             logger.info("相談者を更新: client_id=%s", client_id)
         return updated
+
+    def delete(self, client_id: str, user_id: str) -> bool:
+        """相談者と関連する鑑定セッションをカスケード削除する。
+
+        FOREIGN KEY 制約（``sessions.client_id → clients.id``）があるため、
+        セッションを先に削除してからクライアントを削除する。
+        両削除はトランザクションで原子的に実行される。
+
+        Args:
+            client_id: 削除対象の相談者 UUID。
+            user_id: データ所有者のユーザーID（所有権チェック）。
+
+        Returns:
+            削除成功なら True。対象が存在しない場合は False。
+
+        Raises:
+            DatabaseError: 削除に失敗した場合。
+        """
+        try:
+            with begin_transaction(self._conn):
+                # 関連セッションを先に削除（FK制約対応）
+                self._conn.execute(
+                    "DELETE FROM sessions WHERE client_id = ? AND user_id = ?",
+                    (client_id, user_id),
+                )
+                cursor = self._conn.execute(
+                    "DELETE FROM clients WHERE id = ? AND user_id = ?",
+                    (client_id, user_id),
+                )
+        except DatabaseError:
+            raise
+        except sqlite3.Error as e:
+            logger.error("相談者の削除に失敗: %s", e)
+            raise DatabaseError("相談者の削除に失敗しました") from e
+
+        deleted = cursor.rowcount > 0
+        if deleted:
+            logger.info("相談者を削除: client_id=%s", client_id)
+        return deleted

@@ -18,6 +18,7 @@ from config import (
     SESSION_KEY_CLIENTS_SELECTED,
 )
 from db_init import get_db_connection
+from db_service.models import ClientRecord, SessionRecord
 from db_service.repositories.client_repo import ClientRepository
 from db_service.repositories.session_repo import SessionRepository
 from utils.auth import get_current_user_id, require_page_auth
@@ -25,6 +26,8 @@ from utils.exceptions import DatabaseError
 from utils.privacy import inject_autocomplete_off
 
 logger = logging.getLogger(__name__)
+
+_CLIENT_DELETE_SUCCESS_KEY = "_client_delete_success"
 
 
 def _initialize_state() -> None:
@@ -48,6 +51,12 @@ def _render_list_view(
         client_repo: 相談者リポジトリ。
         session_repo: セッションリポジトリ。
     """
+    # --- 削除成功メッセージ（rerun後に表示） ---
+    delete_msg = st.session_state.pop(_CLIENT_DELETE_SUCCESS_KEY, None)
+    if delete_msg:
+        st.success(delete_msg)
+        st.toast(delete_msg, icon="\u2705")
+
     # --- 検索フィルタ ---
     search_query = st.text_input(
         "相談者名で検索",
@@ -287,7 +296,7 @@ def _render_detail_view(
     except DatabaseError as e:
         logger.error("鑑定履歴の取得に失敗: %s", e)
         st.error("鑑定履歴の取得に失敗しました。")
-        return
+        sessions = []
 
     if not sessions:
         st.markdown(
@@ -297,9 +306,8 @@ def _render_detail_view(
             "</div>",
             unsafe_allow_html=True,
         )
-        return
-
-    st.caption(f"{len(sessions)} 件の鑑定")
+    else:
+        st.caption(f"{len(sessions)} 件の鑑定")
 
     for s in sessions:
         concern_preview = (
@@ -313,6 +321,82 @@ def _render_detail_view(
         with st.container(border=True):
             st.write(f"**{created_date}** — {has_ai}")
             st.caption(concern_preview)
+
+    # --- 相談者の削除 ---
+    _render_delete_section(client_repo, client, sessions, user_id)
+
+
+def _render_delete_section(
+    client_repo: ClientRepository,
+    client: ClientRecord,
+    sessions: list[SessionRecord],
+    user_id: str,
+) -> None:
+    """相談者の削除セクションを表示する。
+
+    確認ダイアログ付きの削除ボタンを表示し、
+    相談者と関連する鑑定セッションをカスケード削除する。
+
+    Args:
+        client_repo: 相談者リポジトリ。
+        client: 削除対象の相談者レコード。
+        sessions: 関連する鑑定セッションのリスト。
+        user_id: データ所有者のユーザーID。
+    """
+    st.markdown("---")
+    st.markdown("#### 相談者の削除")
+
+    session_count = len(sessions)
+    if session_count > 0:
+        st.caption(
+            f"この相談者には {session_count} 件の鑑定履歴があります。"
+            "削除すると鑑定履歴もすべて削除されます。"
+        )
+    else:
+        st.caption("この相談者を削除します。")
+
+    if st.button(
+        f"{client.name} を削除",
+        key="delete_client_btn",
+        type="secondary",
+        use_container_width=True,
+    ):
+        st.session_state["_confirm_delete_client"] = True
+        st.rerun()
+
+    if st.session_state.get("_confirm_delete_client"):
+        st.warning(
+            f"本当に **{client.name}** を削除しますか？"
+            + (f"\n\n関連する {session_count} 件の鑑定履歴もすべて削除されます。" if session_count > 0 else "")
+            + "\n\nこの操作は取り消せません。"
+        )
+        col_yes, col_no = st.columns(2)
+        with col_yes:
+            if st.button(
+                "削除する",
+                key="confirm_delete_client",
+                type="primary",
+                use_container_width=True,
+            ):
+                try:
+                    client_repo.delete(client.id, user_id=user_id)
+                    st.session_state.pop("_confirm_delete_client", None)
+                    st.session_state[SESSION_KEY_CLIENTS_SELECTED] = None
+                    st.session_state[_CLIENT_DELETE_SUCCESS_KEY] = (
+                        f"{client.name} を削除しました。"
+                    )
+                    st.rerun()
+                except DatabaseError as e:
+                    logger.error("相談者の削除に失敗: %s", e)
+                    st.error("削除に失敗しました。")
+        with col_no:
+            if st.button(
+                "キャンセル",
+                key="cancel_delete_client",
+                use_container_width=True,
+            ):
+                st.session_state.pop("_confirm_delete_client", None)
+                st.rerun()
 
 
 def main() -> None:
